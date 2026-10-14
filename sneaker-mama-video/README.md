@@ -37,7 +37,7 @@ npm run verify           # перевірка формату, тривалост
 | `export/verify.mjs` | Перевірка готового MP4 |
 | `src/assets.js` | Завантаження фото продуктів (`assets/photos/*.webp`) перед рендером |
 | `tools/cutout.py` | Вирізає фото з фону (`assets/photos-source` → `assets/photos`, rembg + доведення ворсу щітки) |
-| `src/logo-paths.js` | Логотип (фігурка + написи), векторизований з `assets/logo-source.jpg` скриптом `tools/trace_logo.py` |
+| `src/logo-paths.js` | Логотип: фігурка з `assets/logo-source.jpg`, напис SNEAKER MAMA з `assets/wordmark-source.png` (8× надвибірка, гладкі контури) — скрипт `tools/trace_logo.py` |
 
 Уся випадковість — через seed (`mulberry32`), стану між кадрами немає: частинки, пил з
 гравітацією, краплі з відскоком рахуються аналітично від `t`. Тому будь-який кадр
