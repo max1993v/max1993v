@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """POV-поїздка через міст: салон Audi поверх дороги, міст наближається,
-кермо легенько крутиться, машина ледь помітно погойдується — як у 8-бітній грі.
+кермо легенько крутиться, машина ледь помітно погойдується — як у 8-бітній грі;
+у небі з інтервалом пролітають п'ять шахедів.
 
 Рендерить кадри в пам'яті й передає їх у ffmpeg → out/bridge-drive.mp4 (1080×1920, 30 fps).
 Відео зациклене: в останні C секунд мимо проїжджає пілон, і кадр плавно
@@ -160,7 +161,39 @@ def bg_frame(bg, p, dx, dy, roll):
     return bg.transform((W, H), Image.AFFINE, (a, b, c, d, e, f), Image.BICUBIC)
 
 
-def compose(bg, cockpit, t):
+# Шахеди в небі: (старт, с; висота центру, px кадру; ширина, px; напрям: +1 вправо, −1 вліво).
+# Інтервал 2 с; час прольоту береться за модулем T, тож петля без шва.
+SHAHEDS = [(0.2, 260, 300, 1), (2.2, 520, 210, -1), (4.2, 170, 260, 1), (6.2, 430, 240, 1), (8.2, 300, 190, -1)]
+FLIGHT = 3.0                # скільки секунд шахед перетинає лобове скло
+CLIMB = -0.2                # нахил траєкторії вздовж фюзеляжу (ніс трохи вгору)
+
+
+class Shaheds:
+    def __init__(self):
+        src = Image.open(ROOT / "assets" / "shahed.png").convert("RGBA")
+        a = np.asarray(src).astype(np.float32)
+        a[:, :, :3] *= (0.80, 0.82, 0.92)   # знизу проти світлого неба — трохи темніші й холодніші
+        src = Image.fromarray(a.astype(np.uint8))
+        self.sprites = []
+        for _, _, width, d in SHAHEDS:
+            sp = src.resize((width, round(src.height * width / src.width)), Image.LANCZOS)
+            self.sprites.append(sp if d > 0 else sp.transpose(Image.FLIP_LEFT_RIGHT))
+
+    def draw(self, frame, t, dx, dy):
+        for (start, y0, width, d), sp in zip(SHAHEDS, self.sprites):
+            u = ((t - start) % T) / FLIGHT
+            if u >= 1:
+                continue
+            span = W + 2 * width
+            x = -width + u * span if d > 0 else W + width - u * span
+            y = y0 + CLIMB * (x - W / 2) * d
+            wob = 1.2 * math.sin(2 * math.pi * (u * 1.7 + start))   # легеньке похитування крилами
+            img = sp.rotate(wob, resample=Image.BICUBIC, expand=True)
+            frame.alpha_composite(img, (round(x + dx - img.width / 2), round(y + dy - img.height / 2)))
+        return frame
+
+
+def compose(bg, cockpit, shaheds, t):
     car_dy, road_dy = sway(t)
     lag = steer(t - 0.35)                      # машина відгукується на кермо із затримкою
     dx, roll = -6.0 * lag, math.radians(-0.12 * lag)
@@ -170,6 +203,7 @@ def compose(bg, cockpit, t):
         w = w * w * (3 - 2 * w)
         nxt = bg_frame(bg, t - (T - C), dx, road_dy, roll)
         frame = Image.blend(frame, nxt, w)
+    frame = shaheds.draw(frame.convert("RGBA"), t, dx, road_dy).convert("RGB")
     plate, wheel = cockpit.layers(COCKPIT_SHIFT * F + car_dy, steer(t))
     out = over(over(np.asarray(frame, np.float32), plate), wheel)
     return Image.fromarray(np.clip(out + 0.5, 0, 255).astype(np.uint8))
@@ -177,10 +211,10 @@ def compose(bg, cockpit, t):
 
 def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    bg, cockpit = load_bg(), Cockpit()
+    bg, cockpit, shaheds = load_bg(), Cockpit(), Shaheds()
     if len(sys.argv) > 1 and sys.argv[1] == "--stills":
-        for t in (0.0, 1.0, 2.0, 4.0, 6.0, 8.5):
-            compose(bg, cockpit, t).save(OUT.parent / f"still_{t:04.1f}.png")
+        for t in (1.0, 3.2, 5.6, 7.4, 9.4):
+            compose(bg, cockpit, shaheds, t).save(OUT.parent / f"still_{t:04.1f}.png")
         return
     n = round(T * FPS)
     ff = subprocess.Popen(
@@ -190,7 +224,7 @@ def main():
          "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(OUT)],
         stdin=subprocess.PIPE)
     for i in range(n):
-        ff.stdin.write(compose(bg, cockpit, i / FPS).tobytes())
+        ff.stdin.write(compose(bg, cockpit, shaheds, i / FPS).tobytes())
         if i % 30 == 0:
             print(f"кадр {i}/{n}", flush=True)
     ff.stdin.close()
