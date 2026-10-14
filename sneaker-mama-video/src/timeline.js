@@ -11,14 +11,14 @@ export const T_OUTRO = 19;
 
 // ---------- 01 foam ----------
 export const FOAM = (() => {
-  const nozzle = { x: 402, y: 958 };
+  const nozzle = { x: 305, y: 892 }; // top of the foam bottle photo
   const r = rng(101);
   const lobes = [
-    { x: 660, y: 1050, rx: 160, ry: 90 },
-    { x: 540, y: 1000, rx: 90, ry: 70 },
-    { x: 750, y: 985, rx: 120, ry: 80 },
-    { x: 830, y: 1075, rx: 90, ry: 65 },
-    { x: 650, y: 945, rx: 95, ry: 60 },
+    { x: 680, y: 1150, rx: 160, ry: 90 },
+    { x: 560, y: 1100, rx: 90, ry: 70 },
+    { x: 770, y: 1085, rx: 120, ry: 80 },
+    { x: 850, y: 1175, rx: 90, ry: 65 },
+    { x: 670, y: 1045, rx: 95, ry: 60 },
   ];
   const N = 68;
   const targets = [];
@@ -40,7 +40,7 @@ export const FOAM = (() => {
   const bubbles = targets.map((tg, i) => ({
     ...tg,
     emit: 1.05 + i * 0.028 + r() * 0.01, // local time (s)
-    arc: 60 + r() * 120,
+    arc: 30 + r() * 60,
     flight: 0.48 + r() * 0.12,
   }));
   return { nozzle, bubbles };
@@ -52,20 +52,22 @@ export const BRUSH = (() => {
   // slides in from the right, scrubs left-right (one stroke per beat), exits right
   const x = (u) =>
     540 + amp(u) * Math.sin(2 * Math.PI * (u - 1)) + 760 * (1 - easeOut(prog(u, 0.3, 0.7))) + 760 * smooth(prog(u, 3.4, 0.5));
-  const y = (u) => 1185 + 38 * Math.sin(Math.PI * (u - 1));
+  const y = (u) => 1238 + 38 * Math.sin(Math.PI * (u - 1));
   // brush is touching the sole only while it is over it
   const contact = (u) => clamp(1 - (Math.abs(x(u) - 540) - 420) / 120);
   const vx = (u) => (x(u + 0.001) - x(u - 0.001)) / 0.002;
   const r = rng(202);
   const spots = [];
+  // outsole photo placement and mud spots (fractions of the photo)
+  const sole = { x: 100, y: 1060, w: 880, h: (880 * 534) / 1400 };
   const anchors = [
-    [250, 1175], [330, 1235], [430, 1150], [520, 1250], [600, 1165],
-    [690, 1230], [770, 1150], [850, 1200], [470, 1205],
+    [0.12, 0.55], [0.24, 0.42], [0.3, 0.68], [0.44, 0.52], [0.55, 0.64],
+    [0.63, 0.4], [0.72, 0.62], [0.83, 0.46], [0.9, 0.62],
   ];
-  for (const [sx, sy] of anchors) {
-    spots.push({ x: sx + (r() - 0.5) * 20, y: sy + (r() - 0.5) * 16, r: 22 + r() * 22, seed: Math.floor(r() * 1e6), c: Math.floor(r() * 3), a: 0.75 + r() * 0.2 });
+  for (const [fx, fy] of anchors) {
+    spots.push({ x: sole.x + fx * sole.w + (r() - 0.5) * 20, y: sole.y + fy * sole.h + (r() - 0.5) * 14, r: 20 + r() * 20, seed: Math.floor(r() * 1e6), c: Math.floor(r() * 3), a: 0.8 + r() * 0.15 });
   }
-  return { x, y, vx, amp, contact, spots, start: 0.3, end: 3.9, step: 1 / 120 };
+  return { x, y, vx, amp, contact, sole, spots, start: 0.3, end: 3.9, step: 1 / 120 };
 })();
 function easeOut(v) { return 1 - Math.pow(1 - v, 3); }
 
@@ -83,7 +85,7 @@ export function brushState(u) {
     for (let k = 0; k < spots.length; k++) {
       const sp = spots[k];
       if (exp[k] >= need) continue;
-      if (Math.abs(bx - sp.x) < 125 && Math.abs(by - sp.y) < 90) {
+      if (Math.abs(bx - sp.x) < 150 && Math.abs(by - sp.y) < 120) {
         exp[k] += step * scrub;
         if ((j + k) % 2 === 0) {
           const r = rng(j * 31 + k * 977 + 5);
@@ -107,7 +109,7 @@ export function brushState(u) {
 
 // ---------- 03 antibacterial spray ----------
 export const SPRAY = (() => {
-  const nozzle = { x: 352, y: 1004 };
+  const nozzle = { x: 286, y: 903 }; // sprayer head of the bottle photo
   const presses = [1.0, 1.5, 2.0];
   const v0 = 1800, k = 1.6;
   const germs = [
@@ -139,7 +141,7 @@ export const SPRAY = (() => {
 
 // ---------- 04 water repellent ----------
 export const WATER = (() => {
-  const dome = { cx: 540, cy: 1440, rx: 420, ry: 445 };
+  const dome = { cx: 615, cy: 1445, rx: 385, ry: 440 };
   const g = 2200;
   const r = rng(404);
   const drops = [];
@@ -168,8 +170,11 @@ export const WATER = (() => {
     }
     drops.push({ s, x, y0, vy0, hit: s + tau, yHit, bounce, splash, size: 9 + r() * 5 });
   }
-  return { dome, g, drops };
+  const shoe = { cx: 615, w: 650 };
+  // the can stands left of the shield and gives one spray that "draws" the dome
+  const can = { x: 135, spray: 0.45, nozzle: { x: 150, y: 902 }, dir: -0.35 };
+  return { dome, g, drops, shoe, can };
 })();
 
 // ---------- outro ----------
-export const OUTRO = { buttonIn: 1.4, ding: 1.5 };
+export const OUTRO = { logoIn: 0.3, ding: 0.42 };

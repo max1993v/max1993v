@@ -19,13 +19,13 @@ export const C = {
   spot: '#FCEEF1',
   ink: '#1A1416',
   ink2: '#6E5A60',
-  accent: '#D6336C',
-  // deeper crimson for text on the pink background (WCAG >= 4.5:1)
-  accentText: '#B8245A',
+  // soft brand pink (as in the logo) for graphics; text stays graphite
+  accent: '#F5A9C7',
+  accentDeep: '#E58AB0',
   cream: '#FFFFFF',
   water: '#3E9BD6',
   shadow: 'rgba(140, 92, 108, ',
-  dirt: ['#7A5234', '#8B6140', '#6B4630'],
+  dirt: ['#C9A57C', '#B18B62', '#D8BC94'],
   germ: '#7E8C34',
   germDark: '#56611F',
 };

@@ -274,7 +274,7 @@ function buildMusic(ctx) {
     g.connect(verb);
   }
 
-  // ---- final "ding" when the website button appears
+  // ---- final "ding" when the logo appears
   {
     const t = T_OUTRO + OUTRO.ding;
     [[1, 1, 2.6], [2, 0.45, 1.6], [2.76, 0.3, 1.0], [5.4, 0.12, 0.5]].forEach(([ratio, amp, dec]) => {
@@ -369,9 +369,8 @@ function buildSfx(ctx) {
     s.connect(bp).connect(g).connect(p).connect(out);
   }
 
-  // spray pump "pshik" x3
-  for (const pt of SPRAY.presses) {
-    const t = T_GERM + pt;
+  // spray "pshik": antibacterial pump x3, then one burst of the water-repellent can
+  for (const t of [...SPRAY.presses.map((p) => T_GERM + p), T_WATER + WATER.can.spray]) {
     const s = noise(ctx, kit, t, 0.4, 13);
     const hp = ctx.createBiquadFilter();
     hp.type = 'highpass';

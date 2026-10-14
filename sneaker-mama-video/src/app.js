@@ -2,6 +2,7 @@ import { W, H, FPS, DURATION, TOTAL_FRAMES, SAMPLE_RATE } from './config.js';
 import { render, CONTRAST_PAIRS } from './scene.js';
 import { renderSoundtrack } from './audio.js';
 import { encodeWavFloat32 } from './loudness.js';
+import { loadAssets } from './assets.js';
 
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
@@ -211,7 +212,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); playing ? pause() : play(); }
 });
 showStats(null);
-await fontsReady();
+await Promise.all([fontsReady(), loadAssets()]);
 window.SM_READY = true;
 if (!new URLSearchParams(location.search).has('headless')) requestAnimationFrame(loop);
 else render(ctx, 0);
