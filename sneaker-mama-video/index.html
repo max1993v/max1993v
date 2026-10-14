@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SNEAKER MAMA Reel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F4E8EB; --panel: #FFFFFF; --ink: #1A1416; --ink2: #6E5A60; --line: rgba(26,20,22,.12);
+    --accent: #D6336C; --on-accent: #FFFFFF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #151012; --panel: #211A1D; --ink: #F6ECEF; --ink2: #BFA9B0; --line: rgba(255,255,255,.12); }
+  }
+  :root[data-theme="dark"] { --bg: #151012; --panel: #211A1D; --ink: #F6ECEF; --ink2: #BFA9B0; --line: rgba(255,255,255,.12); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--ink); font: 15px/1.4 "Inter", system-ui, sans-serif; display: flex; justify-content: center; }
+  main { width: 100%; max-width: 980px; padding: 24px 16px; display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: start; }
+  .stage { height: min(86vh, 960px); aspect-ratio: 9 / 16; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 50px rgba(120, 60, 80, .18); background: #F7DDE2; }
+  canvas { width: 100%; height: 100%; display: block; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: grid; gap: 16px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
+  p { margin: 0; color: var(--ink2); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button { font: 700 15px "Inter", system-ui, sans-serif; border: 0; border-radius: 999px; padding: 12px 22px; cursor: pointer; background: var(--accent); color: var(--on-accent); }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button:disabled { opacity: .5; cursor: progress; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .time { font-variant-numeric: tabular-nums; color: var(--ink2); min-width: 92px; }
+  .status { min-height: 1.4em; font-size: 14px; color: var(--ink2); white-space: pre-line; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  td { padding: 4px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  code { font-size: 13px; }
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; justify-items: center; }
+    .stage { height: auto; width: 100%; max-width: 420px; }
+    .panel { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="stage"><canvas id="stage" width="1080" height="1920"></canvas></div>
+  <section class="panel">
+    <h1>SNEAKER MAMA — Reels 9:16</h1>
+    <p>1080×1920 · 30 fps · 23 с · звук синтезується кодом. Натисніть «Play», щоб увімкнути звук.</p>
+    <div class="row">
+      <button id="play">▶ Play</button>
+      <button id="restart" class="ghost">⟲ З початку</button>
+      <span class="time" id="time">0.00 / 23.00</span>
+    </div>
+    <input id="scrub" type="range" min="0" max="23" step="0.001" value="0" aria-label="Позиція">
+    <div class="row">
+      <button id="export" class="ghost">⬇ Експорт MP4</button>
+    </div>
+    <div class="status" id="status"></div>
+    <table id="stats"></table>
+    <p>Еталонний експорт (ffmpeg, H.264 + AAC 48 кГц): <code>npm run export</code></p>
+  </section>
+</main>
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
