@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""POV-поїздка через міст: салон Audi поверх дороги, міст наближається, легка тряска.
+"""POV-поїздка через міст: салон Audi поверх дороги, міст наближається,
+кермо легенько крутиться, машина ледь помітно погойдується — як у 8-бітній грі.
 
 Рендерить кадри в пам'яті й передає їх у ffmpeg → out/bridge-drive.mp4 (1080×1920, 30 fps).
 Відео зациклене: в останні C секунд мимо проїжджає пілон, і кадр плавно
@@ -10,6 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import cv2
 import numpy as np
 from PIL import Image
 
@@ -38,35 +40,70 @@ def zoom(p):
     return 1 / (1 - K * p)
 
 
-def smooth_noise(t, seed):
-    """Суміш синусоїд з «некратними» частотами — плавна псевдовипадкова вібрація."""
-    rng = np.random.default_rng(seed)
-    freqs = rng.uniform(5, 13, 4)
-    phases = rng.uniform(0, 2 * math.pi, 4)
-    amps = np.array([1.0, 0.7, 0.5, 0.35])
-    return float(np.sum(amps * np.sin(2 * math.pi * freqs * t + phases)) / amps.sum())
+# Кермо (координати салону 941×1671): центр обода, зовнішній і внутрішній радіуси.
+WHEEL_C = (459.0, 1126.0)
+RIM_OUT, RIM_IN = 367.0, 304.0
+TWIST_FADE = 640.0       # далі від центру руки вже не повертаються (плечі нерухомі)
+# Отвори всередині керма, крізь які видно нерухому панель і ноги.
+OPENINGS = [
+    [(0, 0), (941, 0), (941, 1098), (640, 1098), (600, 1066), (330, 1066), (270, 1098), (0, 1098)],  # панель і підрульові перемикачі
+    [(150, 1205), (340, 1212), (352, 1300), (388, 1318), (418, 1460), (150, 1460)],  # ліворуч під спицею
+    [(770, 1205), (572, 1212), (560, 1300), (528, 1318), (500, 1460), (770, 1460)],  # праворуч під спицею
+]
+ARMS = [
+    [(105, 1072), (195, 1060), (200, 1300), (160, 1330), (105, 1460), (60, 1580), (0, 1640), (0, 1195), (55, 1165), (98, 1110)],
+    [(705, 1060), (845, 1060), (852, 1200), (882, 1290), (941, 1370), (941, 1600), (880, 1560), (800, 1330), (725, 1310)],
+]
+SHADOW = (18, 19, 23)    # колір салону за кермом
+WATCH = [(0, 1322), (62, 1318), (90, 1360), (88, 1462), (40, 1478), (0, 1470)]  # годинник на лівій руці
+ART_PX = 4 * F           # розмір «пікселя» піксель-арту в кадрі — крок погойдування
 
 
-# Стики й нерівності дороги: (час, сила). Час повторюється з періодом T, щоб петля не мала шва.
-BUMPS = [(0.9, 1.0), (2.6, 0.6), (4.1, 0.9), (5.7, 0.5), (7.0, 1.2), (8.3, 0.7), (9.5, 1.4)]
+def steer(t):
+    """Кут керма в градусах (+ — праворуч). Періоди кратні T, тож петля без шва."""
+    w = 2 * math.pi / T
+    return 2.0 * math.sin(2 * w * t) + 0.8 * math.sin(3 * w * t + 1.1)
 
 
-def bump(t):
-    y = 0.0
-    for t0, a in BUMPS:
-        for k in (-1, 0, 1):
-            dt = t - (t0 + k * T)
-            if 0 <= dt < 0.8:
-                y += a * math.exp(-dt * 7) * math.sin(dt * 2 * math.pi * 5.5)
-    return y
+def sway(t):
+    """Ледь помітне погойдування, як у 8-бітній грі: ступенями по одному «пікселю»."""
+    w = 2 * math.pi / T
+    car = round(math.sin(8 * w * t)) * ART_PX           # салон: −1 / 0 / +1 піксель
+    road = round(0.6 * math.sin(8 * w * t - 1.2)) * ART_PX
+    return car, road
 
 
-def shake(t):
-    """Зсув камери (у пікселях кадру) і крен у радіанах."""
-    dy = 2.2 * smooth_noise(t, 1) + 7 * bump(t)
-    dx = 1.2 * smooth_noise(t, 2) + 1.5 * bump(t - 0.05)
-    roll = math.radians(0.18 * smooth_noise(t * 0.6, 3) + 0.25 * bump(t - 0.03))
-    return dx, dy, roll
+def wheel_mask_and_plate():
+    """Маска керма з руками та «підкладка» — салон, де замість керма темна тінь."""
+    ck = np.asarray(Image.open(ROOT / "assets" / "cockpit.webp").convert("RGBA"))
+    h, w = ck.shape[:2]
+    yy, xx = np.mgrid[0:h, 0:w]
+    r = np.hypot(xx - WHEEL_C[0], yy - WHEEL_C[1])
+    m = np.zeros((h, w), np.uint8)
+    m[r < RIM_OUT] = 255
+    holes = np.zeros((h, w), np.uint8)
+    for poly in OPENINGS:
+        cv2.fillPoly(holes, [np.int32(poly)], 255)
+    holes[r >= RIM_IN] = 0
+    m[holes > 0] = 0
+    # Руки — лише справжні пікселі шкіри (з тату й годинником) у межах полігонів ARMS.
+    zone = np.zeros((h, w), np.uint8)
+    for poly in ARMS:
+        cv2.fillPoly(zone, [np.int32(poly)], 255)
+    rgb = ck[:, :, :3].astype(int)
+    skin = (rgb[:, :, 0] > 110) & (rgb[:, :, 0] - rgb[:, :, 2] > 35) & (rgb[:, :, 0] >= rgb[:, :, 1])
+    skin = cv2.morphologyEx(skin.astype(np.uint8) * 255, cv2.MORPH_CLOSE,
+                            cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (61, 61)))
+    m[(skin > 0) & (zone > 0)] = 255
+    cv2.fillPoly(m, [np.int32(WATCH)], 255)
+    m[ck[:, :, 3] < 128] = 0
+    # Підкладка: під кермом — темна «тінь» салону, під руками — сусідні кольори панелі й ніг.
+    # При повороті на кілька градусів з-під них відкриваються лише тонкі смужки.
+    grown = cv2.dilate(m, np.ones((5, 5), np.uint8))
+    plate = ck.copy()
+    plate[:, :, :3] = cv2.inpaint(np.ascontiguousarray(ck[:, :, :3]), grown, 5, cv2.INPAINT_TELEA)
+    plate[(grown > 0) & (r < RIM_OUT + 4), :3] = SHADOW
+    return m.astype(np.float32) / 255, plate
 
 
 def load_bg():
@@ -77,9 +114,36 @@ def load_bg():
     return bg.resize((bg.width * UP, bg.height * UP), Image.NEAREST)
 
 
-def load_cockpit():
-    ck = Image.open(ROOT / "assets" / "cockpit.webp").convert("RGBA")
-    return ck.resize((W, round(ck.height * F)), Image.LANCZOS)
+class Cockpit:
+    """Салон із кермом, що повертається разом із руками; решта панелі нерухома."""
+
+    def __init__(self):
+        m, plate = wheel_mask_and_plate()
+        ck = np.asarray(Image.open(ROOT / "assets" / "cockpit.webp").convert("RGBA")).astype(np.float32)
+        wheel = ck.copy()
+        wheel[:, :, 3] *= m
+        self.plate, self.wheel = plate.astype(np.float32), wheel
+        self.X, self.Y = np.meshgrid(np.arange(W, dtype=np.float32), np.arange(H, dtype=np.float32))
+
+    def layers(self, oy, theta):
+        """Шари салону в кадрі (зсунуті на oy пікселів), кермо повернуто на theta градусів."""
+        x = self.X / F - WHEEL_C[0]
+        y = (self.Y - oy) / F - WHEEL_C[1]
+        px, py = x + WHEEL_C[0], y + WHEEL_C[1]
+        plate = cv2.remap(self.plate, px, py, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+        r = np.hypot(x, y)
+        fade = np.clip((TWIST_FADE - r) / (TWIST_FADE - RIM_OUT), 0, 1)
+        a = -math.radians(theta) * fade        # зворотне відображення: кадр → салон
+        ca, sa = np.cos(a), np.sin(a)
+        wx = ca * x - sa * y + WHEEL_C[0]
+        wy = sa * x + ca * y + WHEEL_C[1]
+        wheel = cv2.remap(self.wheel, wx, wy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+        return plate, wheel
+
+
+def over(dst, layer):
+    a = layer[:, :, 3:4] / 255
+    return dst * (1 - a) + layer[:, :, :3] * a
 
 
 def bg_frame(bg, p, dx, dy, roll):
@@ -97,24 +161,25 @@ def bg_frame(bg, p, dx, dy, roll):
 
 
 def compose(bg, cockpit, t):
-    dx, dy, roll = shake(t)
-    frame = bg_frame(bg, t + C, dx, dy, roll)
+    car_dy, road_dy = sway(t)
+    lag = steer(t - 0.35)                      # машина відгукується на кермо із затримкою
+    dx, roll = -6.0 * lag, math.radians(-0.12 * lag)
+    frame = bg_frame(bg, t + C, dx, road_dy, roll)
     if t > T - C:  # проїхали пілон — плавно переходимо в початок наступного прольоту
         w = (t - (T - C)) / C
         w = w * w * (3 - 2 * w)
-        nxt = bg_frame(bg, t - (T - C), dx, dy, roll)
+        nxt = bg_frame(bg, t - (T - C), dx, road_dy, roll)
         frame = Image.blend(frame, nxt, w)
-    # Салон трясеться разом із головою, але трохи м'якше.
-    ox, oy = round(dx * 0.35), round(COCKPIT_SHIFT * F + dy * 0.45)
-    frame.paste(cockpit, (ox, oy), cockpit)
-    return frame
+    plate, wheel = cockpit.layers(COCKPIT_SHIFT * F + car_dy, steer(t))
+    out = over(over(np.asarray(frame, np.float32), plate), wheel)
+    return Image.fromarray(np.clip(out + 0.5, 0, 255).astype(np.uint8))
 
 
 def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    bg, cockpit = load_bg(), load_cockpit()
+    bg, cockpit = load_bg(), Cockpit()
     if len(sys.argv) > 1 and sys.argv[1] == "--stills":
-        for t in (0.0, 3.0, 6.0, 8.5, 9.6, 9.9):
+        for t in (0.0, 1.0, 2.0, 4.0, 6.0, 8.5):
             compose(bg, cockpit, t).save(OUT.parent / f"still_{t:04.1f}.png")
         return
     n = round(T * FPS)
