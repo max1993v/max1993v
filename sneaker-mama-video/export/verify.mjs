@@ -10,11 +10,11 @@ const ok = (c, msg) => console.log(`${c ? '✓' : '✗'} ${msg}`) || c;
 let pass = true;
 pass &= ok(v && v.codec_name === 'h264', `video: ${v?.codec_name} ${v?.profile} ${v?.width}×${v?.height} ${v?.r_frame_rate} ${v?.pix_fmt}`);
 pass &= ok(v && v.width === 1080 && v.height === 1920 && v.r_frame_rate === '30/1', 'video is 1080×1920 @ 30 fps');
-pass &= ok(+v.nb_frames === 690, `frames: ${v.nb_frames}`);
+pass &= ok(+v.nb_frames === 810, `frames: ${v.nb_frames}`);
 pass &= ok(a && a.codec_name === 'aac' && +a.sample_rate === 48000 && a.channels === 2, `audio: ${a?.codec_name} ${a?.sample_rate} Hz ${a?.channels} ch`);
 const vd = +v.duration, ad = +a.duration, vs = +v.start_time, as = +a.start_time;
-pass &= ok(Math.abs(vd - 23) < 0.05, `video duration ${vd.toFixed(3)} s`);
-pass &= ok(Math.abs(ad - 23) < 0.05, `audio duration ${ad.toFixed(3)} s`);
+pass &= ok(Math.abs(vd - 27) < 0.05, `video duration ${vd.toFixed(3)} s`);
+pass &= ok(Math.abs(ad - 27) < 0.05, `audio duration ${ad.toFixed(3)} s`);
 pass &= ok(Math.abs(vs - as) <= 1 / 30, `A/V start offset ${((as - vs) * 1000).toFixed(1)} ms (≤ 1 frame)`);
 
 const r = spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-i', file, '-map', '0:a', '-af', 'ebur128=peak=true', '-f', 'null', '-'], { encoding: 'utf8' });

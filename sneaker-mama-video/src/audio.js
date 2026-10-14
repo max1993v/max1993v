@@ -7,7 +7,7 @@ import { FOAM, BRUSH, SPRAY, WATER, OUTRO, T_FOAM, T_BRUSH, T_GERM, T_WATER, T_O
 import { integratedLoudness, peak, limit } from './loudness.js';
 
 const BEAT_START = 3; // the groove starts on the first cut
-const BEAT_END = 19; // and stops on the outro cut
+const BEAT_END = CUTS[4]; // and stops on the outro cut
 
 // ---------------------------------------------------------------- shared helpers
 
@@ -51,7 +51,7 @@ function noise(ctx, kit, t, dur, seedOffset = 0) {
   const src = ctx.createBufferSource();
   src.buffer = kit.noise;
   const r = rng(Math.floor(t * 1000) + seedOffset);
-  src.start(t, r() * (kit.noise.duration - dur - 0.05), dur + 0.05);
+  src.start(t, Math.max(0, r() * (kit.noise.duration - dur - 0.05)), dur + 0.05);
   return src;
 }
 
@@ -294,7 +294,7 @@ function buildMusic(ctx) {
 // ---------------------------------------------------------------- sfx
 
 function buildSfx(ctx) {
-  const kit = { noise: noiseBuffer(ctx, 77, 6) };
+  const kit = { noise: noiseBuffer(ctx, 77, 10) };
   const out = ctx.createGain();
   out.connect(ctx.destination);
   out.gain.setValueAtTime(1, DURATION - 1.5);
@@ -356,10 +356,10 @@ function buildSfx(ctx) {
       let g = 0, pan = 0, best = -1;
       for (const ph of BRUSH.phases) {
         const c = ph.contact(u);
-        g += Math.min(1, Math.abs(ph.vx(u)) / 1800) * 0.7 * c;
+        g += Math.min(1, Math.abs(ph.vx(u)) / 900) * 0.7 * c;
         if (c > best) { best = c; pan = panX(ph.x(u)); }
       }
-      gainCurve[i] = g;
+      gainCurve[i] = Math.min(1, g);
       panCurve[i] = Math.max(-1, Math.min(1, pan));
     }
     const s = noise(ctx, kit, t0, t1 - t0, 12);

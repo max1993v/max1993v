@@ -2,7 +2,7 @@
 export const W = 1080;
 export const H = 1920;
 export const FPS = 30;
-export const DURATION = 23;
+export const DURATION = 27;
 export const TOTAL_FRAMES = FPS * DURATION;
 export const SAMPLE_RATE = 48000;
 
@@ -11,7 +11,7 @@ export const BEAT = 60 / BPM; // 0.5 s
 export const BAR = BEAT * 4; // 2 s
 
 // Scene boundaries (each one lands on a bar downbeat).
-export const CUTS = [3, 7, 11, 15, 19];
+export const CUTS = [3, 7, 15, 19, 23]; // scene 02 (brushes) is 8 s
 export const WIPE = 0.6; // full wipe length, centred on the cut
 
 export const C = {

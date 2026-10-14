@@ -5,22 +5,25 @@ import { rng, clamp, smooth, prog } from './util.js';
 export const T_INTRO = 0;
 export const T_FOAM = 3;
 export const T_BRUSH = 7;
-export const T_GERM = 11;
-export const T_WATER = 15;
-export const T_OUTRO = 19;
+export const T_GERM = 15;
+export const T_WATER = 19;
+export const T_OUTRO = 23;
 
 // ---------- 01 foam ----------
 export const FOAM = (() => {
-  const nozzle = { x: 305, y: 892 }; // top of the foam bottle photo
+  const nozzle = { x: 190, y: 915 }; // top of the foam bottle photo
+  // sneaker standing right of the bottle; foam settles over its upper
+  const shoe = { cx: 650, w: 640, bottom: 1480 };
   const r = rng(101);
   const lobes = [
-    { x: 680, y: 1150, rx: 160, ry: 90 },
-    { x: 560, y: 1100, rx: 90, ry: 70 },
-    { x: 770, y: 1085, rx: 120, ry: 80 },
-    { x: 850, y: 1175, rx: 90, ry: 65 },
-    { x: 670, y: 1045, rx: 95, ry: 60 },
+    { x: 450, y: 1285, rx: 85, ry: 65 },
+    { x: 570, y: 1255, rx: 110, ry: 65 },
+    { x: 700, y: 1295, rx: 120, ry: 60 },
+    { x: 825, y: 1335, rx: 105, ry: 45 },
+    { x: 905, y: 1380, rx: 55, ry: 30 },
+    { x: 520, y: 1215, rx: 75, ry: 40 },
   ];
-  const N = 68;
+  const N = 86;
   const targets = [];
   for (let i = 0; i < N; i++) {
     const l = lobes[Math.floor(r() * lobes.length)];
@@ -30,7 +33,7 @@ export const FOAM = (() => {
     targets.push({
       x: l.x + Math.cos(a) * l.rx * d,
       y: l.y + Math.sin(a) * l.ry * d,
-      r: small ? 10 + r() * 10 : (32 + r() * 32) * (1 - d * 0.3),
+      r: small ? 9 + r() * 8 : (22 + r() * 24) * (1 - d * 0.25),
       phase: r() * Math.PI * 2,
       hl: r(),
     });
@@ -39,11 +42,11 @@ export const FOAM = (() => {
   targets.sort((a, b) => b.y - a.y);
   const bubbles = targets.map((tg, i) => ({
     ...tg,
-    emit: 1.05 + i * 0.028 + r() * 0.01, // local time (s)
-    arc: 30 + r() * 60,
+    emit: 1.0 + i * 0.022 + r() * 0.01, // local time (s)
+    arc: 60 + r() * 50,
     flight: 0.48 + r() * 0.12,
   }));
-  return { nozzle, bubbles };
+  return { nozzle, shoe, bubbles };
 })();
 
 // ---------- 02 brushes ----------
@@ -53,10 +56,11 @@ export const FOAM = (() => {
 function easeOut(v) { return 1 - Math.pow(1 - v, 3); }
 
 function makeScrub({ seed, enter, scrubIn, scrubOut, exit, cx, cy, A, rect, anchors, dirt, rSpot, need }) {
-  const amp = (u) => A * smooth(prog(u, scrubIn, 0.25)) * (1 - smooth(prog(u, scrubOut, 0.25)));
+  const amp = (u) => A * smooth(prog(u, scrubIn, 0.35)) * (1 - smooth(prog(u, scrubOut, 0.35)));
+  // one stroke per two beats (1 s each way), fastest on the beat
   const x = (u) =>
-    cx + amp(u) * Math.sin(2 * Math.PI * (u - 1)) + 760 * (1 - easeOut(prog(u, enter, 0.35))) + 760 * smooth(prog(u, exit, 0.35));
-  const y = (u) => cy + 30 * Math.sin(Math.PI * (u - 1));
+    cx + amp(u) * Math.sin(Math.PI * (u - 1)) + 760 * (1 - easeOut(prog(u, enter, 0.5))) + 760 * smooth(prog(u, exit, 0.45));
+  const y = (u) => cy + 26 * Math.sin((Math.PI / 2) * (u - 1));
   const vx = (u) => (x(u + 0.001) - x(u - 0.001)) / 0.002;
   // audible/cleaning contact: over the object and in the scrubbing phase
   const contact = (u) => clamp(1 - (Math.abs(x(u) - cx) - (rect.w / 2 - 20)) / 120) * smooth(clamp(amp(u) / A));
@@ -69,27 +73,27 @@ function makeScrub({ seed, enter, scrubIn, scrubOut, exit, cx, cy, A, rect, anch
     c: Math.floor(r() * 3),
     a: 0.8 + r() * 0.15,
   }));
-  return { x, y, vx, amp, A, contact, rect, spots, dirt, need, start: enter, end: exit + 0.4, step: 1 / 120 };
+  return { x, y, vx, amp, A, contact, rect, spots, dirt, need, start: enter, end: exit + 0.5, step: 1 / 120 };
 }
 
 export const BRUSH = (() => {
   const shoeW = 840, shoeH = (840 * 617) / 1300;
   const upper = makeScrub({
-    seed: 202, enter: 0.25, scrubIn: 0.5, scrubOut: 1.6, exit: 1.75,
-    cx: 540, cy: 1205, A: 230,
+    seed: 202, enter: 0.3, scrubIn: 0.7, scrubOut: 3.3, exit: 3.45,
+    cx: 540, cy: 1205, A: 250,
     rect: { x: 540 - shoeW / 2, y: 1440 - shoeH, w: shoeW, h: shoeH },
-    anchors: [[0.2, 0.52], [0.31, 0.42], [0.4, 0.6], [0.52, 0.36], [0.6, 0.56], [0.7, 0.66], [0.47, 0.5]],
-    dirt: ['#6B4630', '#7A5234', '#5A3A26'], rSpot: [16, 30], need: 0.5,
+    anchors: [[0.25, 0.52], [0.31, 0.42], [0.4, 0.6], [0.52, 0.36], [0.6, 0.56], [0.7, 0.66], [0.47, 0.5]],
+    dirt: ['#6B4630', '#7A5234', '#5A3A26'], rSpot: [16, 30], need: 0.9,
   });
   const soleW = 880;
   const sole = makeScrub({
-    seed: 212, enter: 2.05, scrubIn: 2.3, scrubOut: 3.3, exit: 3.45,
-    cx: 540, cy: 1238, A: 290,
+    seed: 212, enter: 4.0, scrubIn: 4.4, scrubOut: 7.0, exit: 7.1,
+    cx: 540, cy: 1238, A: 315,
     rect: { x: 100, y: 1060, w: soleW, h: (soleW * 534) / 1400 },
-    anchors: [[0.12, 0.55], [0.24, 0.42], [0.3, 0.68], [0.44, 0.52], [0.55, 0.64], [0.63, 0.4], [0.72, 0.62], [0.83, 0.46], [0.9, 0.62]],
-    dirt: ['#C9A57C', '#B18B62', '#D8BC94'], rSpot: [20, 40], need: 0.3,
+    anchors: [[0.12, 0.55], [0.24, 0.42], [0.3, 0.68], [0.44, 0.52], [0.55, 0.64], [0.63, 0.4], [0.72, 0.62], [0.83, 0.46], [0.86, 0.62]],
+    dirt: ['#C9A57C', '#B18B62', '#D8BC94'], rSpot: [20, 40], need: 0.7,
   });
-  return { upper, sole, phases: [upper, sole], swap: 1.95 };
+  return { upper, sole, phases: [upper, sole], swap: 3.8 };
 })();
 
 // Exposure of each dirt spot to the brush up to local time u, plus dust spawns.
@@ -107,7 +111,7 @@ export function brushState(ph, u) {
       if (exp[k] >= need) continue;
       if (Math.abs(bx - sp.x) < 150 && Math.abs(by - sp.y) < 120) {
         exp[k] += step * scrub;
-        if ((j + k) % 2 === 0) {
+        if ((j + k) % 3 === 0) {
           const r = rng(j * 31 + k * 977 + 5);
           for (let q = 0; q < 2; q++) {
             dust.push({

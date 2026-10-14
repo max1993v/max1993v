@@ -308,16 +308,17 @@ function sceneFoam(ctx, u) {
   const rise = easeOutBack(prog(u, 0.15, 0.8), 1.4);
   const yb = 1500 + (1 - rise) * 900;
 
-  // foam shadow grows with the cloud
-  const landed = FOAM.bubbles.filter((b) => u > b.emit + b.flight * 0.6).length / FOAM.bubbles.length;
-  softShadow(ctx, 730, 1506, 280, 26, 0.25 * landed);
-  drawPhoto(ctx, IMG.foam, 300, yb, 600);
+  const sa = easeOutCubic(prog(u, 0.05, 0.6));
+  const { shoe } = FOAM;
+  drawPhoto(ctx, IMG.sneaker, shoe.cx + (1 - sa) * 300, shoe.bottom, (IMG.sneaker.height * shoe.w) / IMG.sneaker.width, sa, 0.4);
+  drawPhoto(ctx, IMG.foam, 190, yb - 20, 560);
 
-  const sway = 0.03 * Math.sin(u * 1.5);
+  // the settled foam breathes very slightly on the shoe
+  const sway = 0.008 * Math.sin(u * 1.5);
   ctx.save();
-  ctx.translate(700, 1180);
+  ctx.translate(650, 1330);
   ctx.rotate(sway * smooth(prog(u, 1.2, 1)));
-  ctx.translate(-700, -1180);
+  ctx.translate(-650, -1330);
   const n = FOAM.nozzle;
   const live = [];
   for (const b of FOAM.bubbles) {
@@ -327,8 +328,8 @@ function sceneFoam(ctx, u) {
     let x = lerp(n.x, b.x, e);
     let y = lerp(n.y, b.y, e) - b.arc * Math.sin(Math.PI * f) * (1 - f * 0.5);
     const settle = smooth(prog(u, b.emit + b.flight, 0.6));
-    x += 6 * Math.sin(1.7 * u + b.phase) * settle;
-    y += 4 * Math.sin(2.1 * u + b.phase * 1.3) * settle;
+    x += 2.5 * Math.sin(1.7 * u + b.phase) * settle;
+    y += 2 * Math.sin(2.1 * u + b.phase * 1.3) * settle;
     const r = b.r * (0.2 + 0.8 * easeOutBack(f, 2.2)) * (1 + 0.03 * Math.sin(3 * u + b.phase));
     live.push({ x, y, r, f });
   }
