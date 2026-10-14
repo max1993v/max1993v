@@ -345,16 +345,22 @@ function buildSfx(ctx) {
     s.connect(lp).connect(ng).connect(p);
   });
 
-  // brush scrub: band-passed noise following the brush speed and position
+  // brush scrub: band-passed noise following each brush's speed and position
   {
-    const t0 = T_BRUSH + BRUSH.start, t1 = T_BRUSH + BRUSH.end;
+    const u0 = Math.min(...BRUSH.phases.map((p) => p.start)), u1 = Math.max(...BRUSH.phases.map((p) => p.end));
+    const t0 = T_BRUSH + u0, t1 = T_BRUSH + u1;
     const n = Math.round((t1 - t0) * 200);
     const gainCurve = new Float32Array(n), panCurve = new Float32Array(n);
     for (let i = 0; i < n; i++) {
-      const u = BRUSH.start + (i / (n - 1)) * (BRUSH.end - BRUSH.start);
-      const contact = BRUSH.contact(u);
-      gainCurve[i] = Math.min(1, Math.abs(BRUSH.vx(u)) / 1800) * 0.7 * contact;
-      panCurve[i] = panX(BRUSH.x(u));
+      const u = u0 + (i / (n - 1)) * (u1 - u0);
+      let g = 0, pan = 0, best = -1;
+      for (const ph of BRUSH.phases) {
+        const c = ph.contact(u);
+        g += Math.min(1, Math.abs(ph.vx(u)) / 1800) * 0.7 * c;
+        if (c > best) { best = c; pan = panX(ph.x(u)); }
+      }
+      gainCurve[i] = g;
+      panCurve[i] = Math.max(-1, Math.min(1, pan));
     }
     const s = noise(ctx, kit, t0, t1 - t0, 12);
     const bp = ctx.createBiquadFilter();

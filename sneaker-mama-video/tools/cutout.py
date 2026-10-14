@@ -30,6 +30,22 @@ for name in sorted(os.listdir(src)):
         solid = lab == (np.argmax(ndimage.sum(solid, lab, range(1, n + 1))) + 1)
         soft = np.asarray(Image.fromarray((solid * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.2)))
         a = np.maximum(a, soft)
+    if base == "brush-white":
+        # white bristles on a white backdrop: compare each row with the backdrop just right of them
+        g = np.asarray(im.convert("L")).astype(float)
+        ys, xs = np.nonzero(a > 128)
+        x1, y0, y1 = xs.max(), ys.min(), ys.max()
+        ref = np.median(g[:, x1 + 110:x1 + 150], axis=1, keepdims=True)
+        band = np.zeros_like(a, dtype=bool)
+        band[y0 + 10:y1 - 10, x1 - 6:x1 + 100] = True
+        bristles = band & (g < ref - 10)
+        bristles = ndimage.binary_closing(bristles, iterations=3)
+        bristles = ndimage.binary_opening(bristles, iterations=1)
+        solid = ndimage.binary_fill_holes(bristles | (a > 128))
+        lab, n = ndimage.label(solid)
+        solid = lab == (np.argmax(ndimage.sum(solid, lab, range(1, n + 1))) + 1)
+        soft = np.asarray(Image.fromarray((solid * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.0)))
+        a = np.maximum(a, soft)
     a = np.where(a < 12, 0, a).astype(np.uint8)  # drop faint shadow/reflection haze
     cut = im.copy()
     cut.putalpha(Image.fromarray(a))

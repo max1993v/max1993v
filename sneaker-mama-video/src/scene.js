@@ -92,40 +92,6 @@ function drawFigure(ctx, cx, cy, height, color) {
   ctx.restore();
 }
 
-// Rotating circular text.
-function textRing(ctx, cx, cy, radius, angle, alpha, size = 24) {
-  if (alpha <= 0) return;
-  const base = 'SNEAKER MAMA • SHOE CARE • ';
-  ctx.save();
-  ctx.font = font(700, size);
-  const circ = Math.PI * 2 * radius;
-  const unit = trackedWidth(ctx, base, size * 0.18) + size * 0.18;
-  const reps = Math.max(1, Math.round(circ / unit));
-  const text = base.repeat(reps);
-  const chars = [...text];
-  const widths = chars.map((ch) => ctx.measureText(ch).width);
-  const total = widths.reduce((a, b) => a + b, 0);
-  const gap = (circ - total) / chars.length;
-  ctx.globalAlpha *= alpha;
-  ctx.fillStyle = C.ink2;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.translate(cx, cy);
-  ctx.rotate(angle);
-  let a = 0;
-  chars.forEach((ch, i) => {
-    const w = widths[i];
-    const mid = a + (w / 2) / radius;
-    ctx.save();
-    ctx.rotate(mid);
-    ctx.translate(0, -radius);
-    ctx.fillText(ch, 0, 0);
-    ctx.restore();
-    a += (w + gap) / radius;
-  });
-  ctx.restore();
-}
-
 // Product photo standing on the floor at (cx, yb), with a soft studio shadow.
 function drawPhoto(ctx, img, cx, yb, height, alpha = 1, shadow = 0.42) {
   const w = (img.width * height) / img.height;
@@ -265,9 +231,6 @@ function drawWipe(ctx, t) {
 
 // ---------------------------------------------------------------- persistent UI
 
-function counterValue(t) {
-  return clamp(sceneAt(t), 0, 4);
-}
 function drawUI(ctx, t, mono) {
   const a = smooth(prog(t, 0.15, 0.5)) * (1 - smooth(prog(t, CUTS[4], 0.3)));
   if (a <= 0) return;
@@ -275,44 +238,6 @@ function drawUI(ctx, t, mono) {
   ctx.globalAlpha = a;
   drawWordmark(ctx, MARGIN, 160, 200, mono || C.ink);
 
-  // counter with a digit roll on each cut
-  ctx.font = font(800, 40);
-  ctx.textBaseline = 'alphabetic';
-  ctx.textAlign = 'right';
-  const right = W - MARGIN;
-  const by = 204;
-  ctx.fillStyle = mono || C.ink2;
-  ctx.fillText('/04', right, by);
-  const sw = ctx.measureText('/04').width;
-  const dx = right - sw - 4;
-  let roll = 0, from = counterValue(t), to = from;
-  for (const c of CUTS.slice(0, 4)) {
-    if (t > c - 0.15 && t < c + 0.3) {
-      roll = easeOutCubic(prog(t, c - 0.15, 0.45));
-      from = counterValue(c - 0.01);
-      to = counterValue(c + 0.01);
-    }
-  }
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(dx - 70, by - 44, 74, 56);
-  ctx.clip();
-  ctx.fillStyle = mono || C.ink;
-  const pad = (n) => String(n).padStart(2, '0');
-  if (roll > 0 && roll < 1) {
-    ctx.fillText(pad(from), dx, by - roll * 52);
-    ctx.fillText(pad(to), dx, by + (1 - roll) * 52);
-  } else ctx.fillText(pad(to), dx, by);
-  ctx.restore();
-
-  // progress bar
-  const y = H - 206;
-  roundRect(ctx, MARGIN, y, W - MARGIN * 2, 5, 2.5);
-  ctx.fillStyle = 'rgba(26, 20, 22, 0.12)';
-  ctx.fill();
-  roundRect(ctx, MARGIN, y, Math.max(5, (W - MARGIN * 2) * clamp(t / DURATION)), 5, 2.5);
-  ctx.fillStyle = mono || C.accentDeep;
-  ctx.fill();
   ctx.restore();
 }
 
@@ -341,20 +266,10 @@ function sceneIntro(ctx, t) {
   ctx.scale(zoom, zoom);
   ctx.translate(-W / 2, -960);
 
-  drawWordmark(ctx, 90, 740, 900, C.ink, { start: 0.2, t });
+  drawWordmark(ctx, 90, 790, 900, C.ink, { start: 0.2, t });
   ctx.font = font(600, 36);
-  revealLine(ctx, 'ДОГЛЯД ЗА ВЗУТТЯМ', W / 2, 1080, 36, 1.2, t, { weight: 600, color: C.ink2, align: 'center', tracking: 15 });
+  revealLine(ctx, 'ДОГЛЯД ЗА ВЗУТТЯМ', W / 2, 1130, 36, 1.2, t, { weight: 600, color: C.ink2, align: 'center', tracking: 15 });
 
-  const ring = easeOutCubic(prog(t, 1.0, 0.8));
-  const cy = 1405;
-  ctx.save();
-  ctx.translate(W / 2, cy);
-  ctx.scale(0.85 + 0.15 * ring, 0.85 + 0.15 * ring);
-  ctx.translate(-W / 2, -cy);
-  textRing(ctx, W / 2, cy, 140, t * 0.45, ring, 22);
-  ctx.globalAlpha = ring;
-  drawFigure(ctx, W / 2, cy, 140 * easeOutBack(prog(t, 1.15, 0.7)) + 0.001, C.accentDeep);
-  ctx.restore();
   ctx.restore();
 }
 
@@ -489,23 +404,20 @@ function blob(ctx, x, y, r, seed, wob = 0) {
   ctx.closePath();
 }
 
-function drawSole(ctx, alpha, dy, clean) {
-  const { x, y, w, h } = BRUSH.sole;
-  softShadow(ctx, x + w / 2, y + h + dy - 6, w * 0.5, 30, 0.38 * alpha);
+// Photo with mud spots on it; spots fade as the brush cleans them.
+function drawDirty(ctx, img, ph, clean, dx, alpha) {
+  const { x, y, w, h } = ph.rect;
+  softShadow(ctx, x + w / 2 + dx, y + h - 6, w * 0.5, 30, 0.38 * alpha);
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(IMG.sole, x, y + dy, w, h);
-  ctx.restore();
-
-  // mud on the outsole
-  ctx.save();
-  ctx.translate(0, dy);
-  BRUSH.spots.forEach((sp, i) => {
+  ctx.drawImage(img, x + dx, y, w, h);
+  ctx.translate(dx, 0);
+  ph.spots.forEach((sp, i) => {
     const a = sp.a * (1 - clean[i]);
     if (a <= 0.01) return;
     ctx.globalAlpha = alpha * a;
-    ctx.fillStyle = C.dirt[sp.c];
+    ctx.fillStyle = ph.dirt[sp.c];
     blob(ctx, sp.x, sp.y, sp.r * (0.85 + 0.15 * (1 - clean[i])), sp.seed);
     ctx.fill();
     const R = rng(sp.seed + 1);
@@ -518,42 +430,52 @@ function drawSole(ctx, alpha, dy, clean) {
   ctx.restore();
 }
 
-// Brush photo turned on its side, bristles down, tilting with the stroke.
-function drawBrush(ctx, x, y, angle) {
-  const len = 380, thick = (IMG.brush.width * len) / IMG.brush.height;
-  softShadow(ctx, x, y + thick / 2 + 26, len * 0.55, 26, 0.3);
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(Math.PI / 2 + angle);
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(IMG.brush, -thick / 2, -len / 2, thick, len);
-  ctx.restore();
-}
-
-function sceneBrush(ctx, u) {
-  productText(ctx, u, '02', ['ЩІТКИ'], ['М’яка — для верху.', 'Жорстка — для підошви.']);
-  const st = brushState(u);
-  ctx.save();
-  ctx.translate(0, -40);
-  const appear = easeOutCubic(prog(u, 0.05, 0.6));
-  drawSole(ctx, appear, (1 - appear) * 120, st.clean);
-
-  // dust with gravity
-  for (const d of st.dust) {
+function drawDust(ctx, ph, dust, u) {
+  for (const d of dust) {
     const a = u - d.t0;
     if (a < 0 || a > 0.85) continue;
     ctx.globalAlpha = (1 - a / 0.85) * 0.9;
-    ctx.fillStyle = C.dirt[d.c];
+    ctx.fillStyle = ph.dirt[d.c];
     ctx.beginPath();
     ctx.arc(d.x + d.vx * a, d.y + d.vy * a + 0.5 * 1900 * a * a, d.size * (1 - a * 0.4), 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
+}
 
-  if (u > BRUSH.start - 0.05) {
-    const vx = BRUSH.vx(u);
-    drawBrush(ctx, BRUSH.x(u), BRUSH.y(u) - 70, vx * 0.00004);
+// Brush photo turned on its side, bristles down, tilting with the stroke.
+function drawBrush(ctx, img, len, x, y, angle) {
+  const thick = (img.width * len) / img.height;
+  softShadow(ctx, x, y + thick / 2 + 26, len * 0.55, 26, 0.3);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.PI / 2 + angle);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, -thick / 2, -len / 2, thick, len);
+  ctx.restore();
+}
+
+function scrubPass(ctx, u, ph, photo, brushImg, brushLen, dx, alpha) {
+  const st = brushState(ph, u);
+  drawDirty(ctx, photo, ph, st.clean, dx, alpha);
+  drawDust(ctx, ph, st.dust, u);
+  if (u > ph.start - 0.05 && u < ph.end) {
+    const vx = ph.vx(u);
+    drawBrush(ctx, brushImg, brushLen, ph.x(u), ph.y(u) - 70, vx * 0.00004);
   }
+}
+
+function sceneBrush(ctx, u) {
+  productText(ctx, u, '02', ['ЩІТКИ'], ['М’яка — для верху.', 'Жорстка — для підошви.']);
+  ctx.save();
+  ctx.translate(0, -40);
+  // 1) beige bristles clean the sneaker upper
+  const appear = easeOutCubic(prog(u, 0.05, 0.5));
+  const out = easeInOutCubic(prog(u, BRUSH.swap - 0.1, 0.4));
+  if (out < 1) scrubPass(ctx, u, BRUSH.upper, IMG.sneaker, IMG.brush, 360, (1 - appear) * 300 - out * 1150, appear);
+  // 2) white bristles scrub the outsole
+  const inn = easeOutCubic(prog(u, BRUSH.swap, 0.45));
+  if (inn > 0) scrubPass(ctx, u, BRUSH.sole, IMG.sole, IMG.brushWhite, 330, (1 - inn) * 1150, 1);
   ctx.restore();
 }
 

@@ -4,6 +4,7 @@ export const IMG = {};
 const FILES = {
   foam: 'foam',
   brush: 'brush',
+  brushWhite: 'brush-white',
   sole: 'sole',
   sneaker: 'sneaker',
   sprayAntibac: 'spray-antibac',

@@ -47,40 +47,60 @@ export const FOAM = (() => {
 })();
 
 // ---------- 02 brushes ----------
-export const BRUSH = (() => {
-  const amp = (u) => 290 * smooth(prog(u, 0.55, 0.5)) * (1 - smooth(prog(u, 3.2, 0.45)));
-  // slides in from the right, scrubs left-right (one stroke per beat), exits right
-  const x = (u) =>
-    540 + amp(u) * Math.sin(2 * Math.PI * (u - 1)) + 760 * (1 - easeOut(prog(u, 0.3, 0.7))) + 760 * smooth(prog(u, 3.4, 0.5));
-  const y = (u) => 1238 + 38 * Math.sin(Math.PI * (u - 1));
-  // brush is touching the sole only while it is over it
-  const contact = (u) => clamp(1 - (Math.abs(x(u) - 540) - 420) / 120);
-  const vx = (u) => (x(u + 0.001) - x(u - 0.001)) / 0.002;
-  const r = rng(202);
-  const spots = [];
-  // outsole photo placement and mud spots (fractions of the photo)
-  const sole = { x: 100, y: 1060, w: 880, h: (880 * 534) / 1400 };
-  const anchors = [
-    [0.12, 0.55], [0.24, 0.42], [0.3, 0.68], [0.44, 0.52], [0.55, 0.64],
-    [0.63, 0.4], [0.72, 0.62], [0.83, 0.46], [0.9, 0.62],
-  ];
-  for (const [fx, fy] of anchors) {
-    spots.push({ x: sole.x + fx * sole.w + (r() - 0.5) * 20, y: sole.y + fy * sole.h + (r() - 0.5) * 14, r: 20 + r() * 20, seed: Math.floor(r() * 1e6), c: Math.floor(r() * 3), a: 0.8 + r() * 0.15 });
-  }
-  return { x, y, vx, amp, contact, sole, spots, start: 0.3, end: 3.9, step: 1 / 120 };
-})();
+// Two passes: the beige-bristle brush cleans the sneaker upper, then the
+// white-bristle brush scrubs the outsole. Each brush slides in from the right,
+// scrubs one stroke per beat (fastest on the beat) and exits right.
 function easeOut(v) { return 1 - Math.pow(1 - v, 3); }
 
+function makeScrub({ seed, enter, scrubIn, scrubOut, exit, cx, cy, A, rect, anchors, dirt, rSpot, need }) {
+  const amp = (u) => A * smooth(prog(u, scrubIn, 0.25)) * (1 - smooth(prog(u, scrubOut, 0.25)));
+  const x = (u) =>
+    cx + amp(u) * Math.sin(2 * Math.PI * (u - 1)) + 760 * (1 - easeOut(prog(u, enter, 0.35))) + 760 * smooth(prog(u, exit, 0.35));
+  const y = (u) => cy + 30 * Math.sin(Math.PI * (u - 1));
+  const vx = (u) => (x(u + 0.001) - x(u - 0.001)) / 0.002;
+  // audible/cleaning contact: over the object and in the scrubbing phase
+  const contact = (u) => clamp(1 - (Math.abs(x(u) - cx) - (rect.w / 2 - 20)) / 120) * smooth(clamp(amp(u) / A));
+  const r = rng(seed);
+  const spots = anchors.map(([fx, fy]) => ({
+    x: rect.x + fx * rect.w + (r() - 0.5) * 16,
+    y: rect.y + fy * rect.h + (r() - 0.5) * 12,
+    r: rSpot[0] + r() * (rSpot[1] - rSpot[0]),
+    seed: Math.floor(r() * 1e6),
+    c: Math.floor(r() * 3),
+    a: 0.8 + r() * 0.15,
+  }));
+  return { x, y, vx, amp, A, contact, rect, spots, dirt, need, start: enter, end: exit + 0.4, step: 1 / 120 };
+}
+
+export const BRUSH = (() => {
+  const shoeW = 840, shoeH = (840 * 617) / 1300;
+  const upper = makeScrub({
+    seed: 202, enter: 0.25, scrubIn: 0.5, scrubOut: 1.6, exit: 1.75,
+    cx: 540, cy: 1205, A: 230,
+    rect: { x: 540 - shoeW / 2, y: 1440 - shoeH, w: shoeW, h: shoeH },
+    anchors: [[0.2, 0.52], [0.31, 0.42], [0.4, 0.6], [0.52, 0.36], [0.6, 0.56], [0.7, 0.66], [0.47, 0.5]],
+    dirt: ['#6B4630', '#7A5234', '#5A3A26'], rSpot: [16, 30], need: 0.5,
+  });
+  const soleW = 880;
+  const sole = makeScrub({
+    seed: 212, enter: 2.05, scrubIn: 2.3, scrubOut: 3.3, exit: 3.45,
+    cx: 540, cy: 1238, A: 290,
+    rect: { x: 100, y: 1060, w: soleW, h: (soleW * 534) / 1400 },
+    anchors: [[0.12, 0.55], [0.24, 0.42], [0.3, 0.68], [0.44, 0.52], [0.55, 0.64], [0.63, 0.4], [0.72, 0.62], [0.83, 0.46], [0.9, 0.62]],
+    dirt: ['#C9A57C', '#B18B62', '#D8BC94'], rSpot: [20, 40], need: 0.3,
+  });
+  return { upper, sole, phases: [upper, sole], swap: 1.95 };
+})();
+
 // Exposure of each dirt spot to the brush up to local time u, plus dust spawns.
-export function brushState(u) {
-  const { spots, x, y, vx, amp, start, step } = BRUSH;
+export function brushState(ph, u) {
+  const { spots, x, y, vx, amp, A, start, step, need } = ph;
   const exp = new Float32Array(spots.length);
   const dust = [];
-  const need = 0.45;
   let j = 0;
   for (let s = start; s <= u; s += step, j++) {
     const bx = x(s), by = y(s);
-    const scrub = amp(s) / 290; // only the scrubbing strokes clean, not the slide-in
+    const scrub = amp(s) / A; // only the scrubbing strokes clean, not the slide-in
     if (scrub < 0.2) continue;
     for (let k = 0; k < spots.length; k++) {
       const sp = spots[k];
