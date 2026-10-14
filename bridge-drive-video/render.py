@@ -181,7 +181,7 @@ class Shaheds:
             sp = src.resize((width, round(src.height * width / src.width)), Image.LANCZOS)
             self.sprites.append(sp if d > 0 else sp.transpose(Image.FLIP_LEFT_RIGHT))
         # Крупный шахед для титульного экрана — размером с нарисованный на нём.
-        self.title_sprite = src.resize((470, round(src.height * 470 / src.width)), Image.LANCZOS)
+        self.title_sprite = src.resize((540, round(src.height * 540 / src.width)), Image.LANCZOS)
 
     def draw(self, frame, t, dx, dy):
         for (start, y0, width, d), sp in zip(SHAHEDS, self.sprites):
