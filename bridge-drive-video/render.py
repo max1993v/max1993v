@@ -16,6 +16,8 @@ import cv2
 import numpy as np
 from PIL import Image
 
+import intro
+
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "out" / "bridge-drive.mp4"
 
@@ -178,6 +180,8 @@ class Shaheds:
         for _, _, width, d in SHAHEDS:
             sp = src.resize((width, round(src.height * width / src.width)), Image.LANCZOS)
             self.sprites.append(sp if d > 0 else sp.transpose(Image.FLIP_LEFT_RIGHT))
+        # Крупный шахед для титульного экрана — размером с нарисованный на нём.
+        self.title_sprite = src.resize((470, round(src.height * 470 / src.width)), Image.LANCZOS)
 
     def draw(self, frame, t, dx, dy):
         for (start, y0, width, d), sp in zip(SHAHEDS, self.sprites):
@@ -209,14 +213,33 @@ def compose(bg, cockpit, shaheds, t):
     return Image.fromarray(np.clip(out + 0.5, 0, 255).astype(np.uint8))
 
 
+# Заставка идёт до середины пиксельного перехода, дальше — поездка (её t = 0).
+INTRO = sum(intro.TRANSITION) / 2
+
+
+def full_frame(scene, t):
+    """Кадр всего ролика: титульный экран, мозаичный переход, затем поездка."""
+    bg, cockpit, shaheds, title = scene
+    a, b = intro.TRANSITION
+    if t < INTRO:
+        out = title.frame(t, shaheds.title_sprite)
+        block = 1 + 47 * max(0.0, (t - a) / (INTRO - a)) ** 2
+    else:
+        out = np.asarray(compose(bg, cockpit, shaheds, t - INTRO), np.float32)
+        block = 1 + 47 * max(0.0, (b - t) / (b - INTRO)) ** 2
+    out = intro.pixelate(out, round(block))
+    return np.clip(out + 0.5, 0, 255).astype(np.uint8)
+
+
 def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    bg, cockpit, shaheds = load_bg(), Cockpit(), Shaheds()
+    scene = (load_bg(), Cockpit(), Shaheds(), intro.Title(W, H))
     if len(sys.argv) > 1 and sys.argv[1] == "--stills":
-        for t in (1.0, 3.2, 5.6, 7.4, 9.4):
-            compose(bg, cockpit, shaheds, t).save(OUT.parent / f"still_{t:04.1f}.png")
+        times = [float(x) for x in sys.argv[2:]] or [0.2, 1.5, 3.0, 4.0, 4.9, 5.2, 7.0]
+        for t in times:
+            Image.fromarray(full_frame(scene, t)).save(OUT.parent / f"still_{t:05.2f}.png")
         return
-    n = round(T * FPS)
+    n = round((INTRO + T) * FPS)
     ff = subprocess.Popen(
         ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
          "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
@@ -224,7 +247,7 @@ def main():
          "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(OUT)],
         stdin=subprocess.PIPE)
     for i in range(n):
-        ff.stdin.write(compose(bg, cockpit, shaheds, i / FPS).tobytes())
+        ff.stdin.write(full_frame(scene, i / FPS).tobytes())
         if i % 30 == 0:
             print(f"кадр {i}/{n}", flush=True)
     ff.stdin.close()
