@@ -299,6 +299,14 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
     </div>
   </div>
   <div class="toast" id="toast" hidden></div>
+  <div class="modal" id="siteModal" hidden>
+    <div class="panel" role="dialog" aria-labelledby="shT" style="width:900px">
+      <h3 id="shT">Потрібен TV Bro</h3>
+      <p>Щоб відкрити <b id="shName">сайт</b> і керувати ним пультом, встановіть безкоштовний браузер <b>TV Bro</b>. У ньому стрілки рухають курсор, OK — це клік, а «Назад» повертає в лаунчер.</p>
+      <p class="hint" style="margin-top:-6px">Після встановлення просто натисніть плитку ще раз.</p>
+      <div class="btns"><button class="btn" id="shHere">Відкрити тут (без курсора)</button><button class="btn" id="shCancel">Скасувати</button><button class="btn primary" id="shInstall">Встановити TV Bro</button></div>
+    </div>
+  </div>
 
   <div class="modal" id="modal" hidden>
     <div class="panel" role="dialog" aria-labelledby="setT">
@@ -332,7 +340,7 @@ var APPS = [
   {name:"sweet.tv",    pkg:"tv.sweet.tvplayer",                 bg:"#0b3b3a", fg:"#ffffff", glyph:"s"},
   {name:"Київстар ТБ", pkg:"ua.kyivstar.tv",                    bg:"#0a1640", fg:"#ffd400", glyph:"К"},
   {name:"Spotify",     pkg:"com.spotify.tv.android",            bg:"#101010", fg:"#1ed760", glyph:"wave"},
-  {name:"Chrome",      pkg:"com.android.chrome",                bg:"#f3f4f6", fg:"#1a73e8", glyph:"globe"},
+  {name:"TV Bro",      pkg:"com.phlox.tvwebbrowser",            bg:"#1e3a5f", fg:"#ffffff", glyph:"globe"},
   {name:"X-plore",     pkg:"com.lonelycatgames.Xplore",         bg:"#2a2112", fg:"#f6b73c", glyph:"folder"},
   {name:"Play Маркет", pkg:"com.android.vending",               bg:"#f3f4f6", fg:"#01875f", glyph:"tri"},
   {name:"New Balance", url:"https://newbalance.ua/", pkg:"url:newbalance.ua", bg:"#1c1c1e", fg:"#ffffff", glyph:"NB"}
@@ -854,16 +862,23 @@ function viaFully(fn){ return function(){ var f=F(); if(!f) throw 0; fn(f); }; }
 function viaHref(uri){ return function(){ location.href=uri; }; }
 var NO_JS = "Не відкрилось. У Fully увімкніть Settings → Advanced Web Settings → Enable JavaScript Interface";
 function openIntent(uri){ tryChain([viaFully(function(f){ f.startIntent(uri); }), viaHref(uri)], NO_JS); }
+var pendingUrl=null;
 function openUrl(url, name){
   var u=url.replace(/^https?:\/\//,""), sch=/^http:/.test(url)?"http":"https";
+  pendingUrl={url:url, name:name||u};
   tryChain([
-    viaFully(function(f){ f.startIntent("intent://"+u+"#Intent;scheme="+sch+";action=android.intent.action.VIEW;launchFlags=0x10000000;end"); }),
-    viaFully(function(f){ f.startIntent("intent://"+u+"#Intent;scheme="+sch+";package=com.android.chrome;launchFlags=0x10000000;end"); }),
-    viaFully(function(f){ f.startIntent("intent://"+u+"#Intent;scheme="+sch+";package=com.phlox.tvwebbrowser;launchFlags=0x10000000;end"); }),
-    viaHref("intent://"+u+"#Intent;scheme="+sch+";action=android.intent.action.VIEW;end"),
-    function(){ toast("Відкриваю "+(name||"сайт")+" тут. Назад — кнопка «Назад» на пульті"); setTimeout(function(){ location.href=url; }, 900); }
+    // TV Bro: браузер з курсором для пульта — пріоритет
+    viaFully(function(f){ f.startIntent("intent://"+u+"#Intent;scheme="+sch+";action=android.intent.action.VIEW;package=com.phlox.tvwebbrowser;launchFlags=0x10000000;end"); }),
+    viaHref("intent://"+u+"#Intent;scheme="+sch+";action=android.intent.action.VIEW;package=com.phlox.tvwebbrowser;end"),
+    function(){ showSiteHelp(); }
   ], null);
 }
+function showSiteHelp(){
+  $("shName").textContent = pendingUrl ? pendingUrl.name : "сайт";
+  $("siteModal").hidden=false; $("shInstall").focus();
+}
+function closeSiteHelp(){ $("siteModal").hidden=true; focusAt(row, col); }
+
 function launch(a){
   if(a.pkg==="__settings__"){ openModal(); return; }
   if(a.url){ openUrl(a.url, a.name); return; }
@@ -1114,6 +1129,22 @@ function onKyivState(isAlert){
   }
 }
 
+$("shCancel").addEventListener("click", closeSiteHelp);
+$("shInstall").addEventListener("click", function(){
+  $("siteModal").hidden=true;
+  tryChain([
+    viaFully(function(f){ f.startIntent("market://details?id=com.phlox.tvwebbrowser"); }),
+    viaFully(function(f){ f.startIntent("intent://details?id=com.phlox.tvwebbrowser#Intent;scheme=market;package=com.android.vending;launchFlags=0x10000000;end"); }),
+    viaHref("market://details?id=com.phlox.tvwebbrowser")
+  ], "Відкрийте Play Маркет і знайдіть «TV Bro»");
+  focusAt(row, col);
+});
+$("shHere").addEventListener("click", function(){
+  $("siteModal").hidden=true;
+  toast("Повернутись у лаунчер: затисніть «Назад» → Goto Start URL");
+  var u=pendingUrl && pendingUrl.url; if(u) setTimeout(function(){ location.href=u; }, 1500);
+});
+
 /* ================= APPS EDITOR ================= */
 var appsModal=$("appsModal"), moving=-1;
 function toast(msg){ var el=$("toast"); el.textContent=msg; el.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(function(){el.hidden=true}, msg.length>40?6000:2200); }
@@ -1204,6 +1235,14 @@ document.addEventListener("keydown", function(e){
   if(!pop.hidden){ e.preventDefault(); dismissPop(); return; }
   var back = k==="Escape"||k==="GoBack"||code===4||(k==="Backspace"&&document.activeElement.tagName!=="INPUT");
   if(!fullmap.hidden){ if(back||k==="Enter"||code===23){ e.preventDefault(); closeFullMap(); } return; }
+  if(!$("siteModal").hidden){
+    var sb=[$("shHere"),$("shCancel"),$("shInstall")], si=sb.indexOf(document.activeElement);
+    if(back){ e.preventDefault(); closeSiteHelp(); return; }
+    if(k==="ArrowLeft"){ e.preventDefault(); sb[Math.max(0,si-1)].focus(); }
+    else if(k==="ArrowRight"){ e.preventDefault(); sb[Math.min(sb.length-1,si+1)].focus(); }
+    else if(k==="ArrowUp"||k==="ArrowDown"){ e.preventDefault(); }
+    return;
+  }
   if(!appsModal.hidden){
     var ae=document.activeElement, isText = ae && ae.tagName==="INPUT";
     if(back && !(isText && k==="Backspace")){ e.preventDefault(); if(moving>=0){ moving=-1; renderEditor(ae&&ae.id); } else closeApps(); return; }
