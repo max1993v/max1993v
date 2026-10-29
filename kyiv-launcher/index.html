@@ -817,19 +817,55 @@ function edgeFade(){
 renderApps(); setTimeout(edgeFade, 100);
 /* ---------- Android bridge (Fully Kiosk JS Interface, fallback: intent:) ---------- */
 function F(){ return (typeof window.fully!=="undefined" && window.fully) ? window.fully : null; }
-function openIntent(uri){
-  var f=F();
-  try{ if(f && f.startIntent){ f.startIntent(uri); return; } }catch(e){}
-  location.href = uri;
+/* Запуск з перевіркою: пробуємо способи по черзі, поки лаунчер не піде у фон */
+var leftAt=0;
+function markLeft(){ leftAt=Date.now(); }
+addEventListener("blur", markLeft);
+addEventListener("pagehide", markLeft);
+document.addEventListener("visibilitychange", function(){ if(document.hidden) markLeft(); });
+function tryChain(steps, failMsg){
+  var started=Date.now(), i=0;
+  function next(){
+    if(i>=steps.length){ if(failMsg) toast(failMsg); return; }
+    var stepAt=Date.now();
+    try{ steps[i++](); }catch(e){ return next(); }
+    setTimeout(function(){
+      // вийшли з лаунчера, або таймер "заснув" (застосунок відкрився) — успіх
+      if(leftAt>=stepAt || document.hidden || Date.now()-stepAt>3500) return;
+      next();
+    }, 1600);
+  }
+  next();
 }
+function viaFully(fn){ return function(){ var f=F(); if(!f) throw 0; fn(f); }; }
+function viaHref(uri){ return function(){ location.href=uri; }; }
+var NO_JS = "Не відкрилось. У Fully увімкніть Settings → Advanced Web Settings → Enable JavaScript Interface";
+function openIntent(uri){ tryChain([viaFully(function(f){ f.startIntent(uri); }), viaHref(uri)], NO_JS); }
 function launch(a){
   if(a.pkg==="__settings__"){ openModal(); return; }
-  var f=F();
-  try{ if(f && f.startApplication){ f.startApplication(a.pkg); return; } }catch(e){}
-  location.href = "intent:#Intent;action=android.intent.action.MAIN;package="+a.pkg+";end";
+  tryChain([
+    viaFully(function(f){ f.startApplication(a.pkg); }),
+    viaHref("intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LEANBACK_LAUNCHER;package="+a.pkg+";end"),
+    viaHref("intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package="+a.pkg+";end")
+  ], F() ? "Не вдалося відкрити «"+a.name+"». Можливо, застосунок не встановлено" : NO_JS);
 }
-function openSystem(){ openIntent("intent:#Intent;action=android.settings.SETTINGS;end"); }
-function openWifi(){ openIntent("intent:#Intent;action=android.settings.WIFI_SETTINGS;end"); }
+function openSystem(){
+  tryChain([
+    viaFully(function(f){ f.startIntent("intent:#Intent;action=android.settings.SETTINGS;launchFlags=0x10000000;end"); }),
+    viaFully(function(f){ f.startApplication("com.android.tv.settings"); }),
+    viaFully(function(f){ f.startIntent("intent:#Intent;component=com.android.tv.settings/.MainSettings;launchFlags=0x10000000;end"); }),
+    viaFully(function(f){ f.startApplication("com.xiaomi.mitv.settings"); }),
+    viaHref("intent:#Intent;action=android.settings.SETTINGS;end")
+  ], F() ? "Не вдалося відкрити налаштування ТБ. Натисніть кнопку ⚙ на пульті" : NO_JS);
+}
+function openWifi(){
+  tryChain([
+    viaFully(function(f){ f.startIntent("intent:#Intent;action=android.settings.WIFI_SETTINGS;launchFlags=0x10000000;end"); }),
+    viaFully(function(f){ f.startIntent("intent:#Intent;component=com.android.tv.settings/.connectivity.NetworkActivity;launchFlags=0x10000000;end"); }),
+    viaFully(function(f){ f.startApplication("com.android.tv.settings"); }),
+    viaHref("intent:#Intent;action=android.settings.WIFI_SETTINGS;end")
+  ], F() ? "Не вдалося відкрити Wi‑Fi. Відкрийте налаштування ТБ кнопкою ⚙ на пульті" : NO_JS);
+}
 
 /* ---------- focus rows: 0 = system bar, 1 = apps ---------- */
 var topRow = [$("cWifi"),$("cSpeed"),$("cMap"),$("cSys")];
@@ -1056,7 +1092,7 @@ function onKyivState(isAlert){
 
 /* ================= APPS EDITOR ================= */
 var appsModal=$("appsModal"), moving=-1;
-function toast(msg){ var el=$("toast"); el.textContent=msg; el.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(function(){el.hidden=true},2200); }
+function toast(msg){ var el=$("toast"); el.textContent=msg; el.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(function(){el.hidden=true}, msg.length>40?6000:2200); }
 function miniTile(a){ return '<div class="mt" style="background:'+esc(a.bg)+';color:'+esc(a.fg)+'">'+glyphHTML(a)+'</div><span>'+esc(a.name)+'</span>'; }
 function renderEditor(focusId){
   var L=$("edList"); L.innerHTML="";
