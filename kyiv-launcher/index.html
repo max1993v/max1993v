@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Київ Лаунчер</title>
+<meta name="kl-version" content="261029.1401">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700&display=swap">
 <style>
@@ -55,7 +56,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
 .sysbar{position:absolute;right:72px;top:24px;display:flex;gap:12px}
 .chip{appearance:none;font:600 18px var(--body);color:var(--ink);display:flex;align-items:center;gap:10px;height:46px;padding:0 18px;border-radius:23px;background:rgba(12,17,28,.55);border:1px solid var(--line);cursor:pointer;outline:none;white-space:nowrap;font-variant-numeric:tabular-nums;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:transform .15s,box-shadow .15s}
 .chip svg{width:24px;height:24px;flex:none}
-.chip .dim{color:var(--ink-3);font-weight:500}
+.chip .mute{color:var(--ink-3);font-weight:500}
 .chip:focus,.chip:hover{transform:scale(1.06);box-shadow:0 0 0 3px #fff;background:rgba(30,40,60,.8)}
 .chip.off{color:var(--partial)}
 .chip.busy .spd{color:var(--gold)}
@@ -292,7 +293,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
   </section>
 
   <nav class="apps" id="apps"></nav>
-  <div class="foot"><span id="src">Погода: Open-Meteo · Тривоги: —</span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
+  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.1401</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
 
   <div class="fullmap" id="fullmap" hidden>
     <header><div><b>Мапа тривог</b> <span>· alerts.in.ua онлайн</span></div><button class="btn" id="bMapClose">Назад до лаунчера</button></header>
@@ -983,7 +984,8 @@ function updateNet(){
   var chip=$("cWifi");
   chip.classList.toggle("off", !online);
   $("wifiIco").innerHTML = wifiSvg(bars, eth && !wifi, !online);
-  $("wifiTxt").textContent = !online ? "Немає мережі" : eth && !wifi ? "Ethernet" : (ssid || "Wi‑Fi");
+  $("wifiTxt").innerHTML = esc(!online ? "Немає мережі" : eth && !wifi ? "Ethernet" : (ssid || "Wi‑Fi")) +
+    (online && !(eth && !wifi) && level!=null && !isNaN(level) ? ' <span class="mute">'+(level<0 ? level+" дБм" : level>4 ? Math.round(level)+"%" : level+"/4")+'</span>' : "");
 }
 updateNet(); setInterval(updateNet, 10000);
 addEventListener("online", function(){ updateNet(); loadWeather(); loadAlerts(); });
@@ -997,7 +999,7 @@ function fmtM(v){ return v>=100 ? Math.round(v) : v.toFixed(1); }
 function showSpeed(r, live){
   var el=$("speedTxt");
   if(!r){ el.textContent="Перевірити швидкість"; return; }
-  el.innerHTML = (live?'<span class="dim">Тест · </span>':'')+"↓ "+(r.dl!=null?fmtM(r.dl):"…")+" <span class=\"dim\">↑</span> "+(r.ul!=null?fmtM(r.ul):"…")+' <span class="dim">Мбіт/с · '+(r.ping!=null?Math.round(r.ping)+" мс":"…")+"</span>";
+  el.innerHTML = (live?'<span class="mute">Тест · </span>':'')+"↓ "+(r.dl!=null?fmtM(r.dl):"…")+" <span class=\"mute\">↑</span> "+(r.ul!=null?fmtM(r.ul):"…")+' <span class="mute">Мбіт/с · '+(r.ping!=null?Math.round(r.ping)+" мс":"…")+"</span>";
 }
 try{ var saved=JSON.parse(localStorage.getItem("kyivLauncherSpeed")||"null"); if(saved) showSpeed(saved); }catch(e){}
 function timed(url, opts){ var t0=performance.now(); return fetch(url, opts).then(function(r){ return r.arrayBuffer().then(function(){ return performance.now()-t0; }); }); }
@@ -1310,7 +1312,21 @@ document.addEventListener("keydown", function(e){
   else if(k==="ContextMenu"||code===82||k==="s"){ e.preventDefault(); openModal(); }
 });
 function savedApp(){ try{ return +(localStorage.getItem("kyivLauncherFocus")||0)||0; }catch(e){ return 0; } }
-document.addEventListener("visibilitychange", function(){ if(!document.hidden){ loadWeather(); loadAlerts(); updateScene(); updateNet(); } });
+document.addEventListener("visibilitychange", function(){ if(!document.hidden){ loadWeather(); loadAlerts(); updateScene(); updateNet(); checkUpdate(); } });
+/* автооновлення: якщо на GitHub нова версія — перезавантажуємось (не під час тривоги чи відкритих вікон) */
+var MY_VER = (document.querySelector('meta[name="kl-version"]')||{}).content || "";
+function checkUpdate(){
+  if(!/^https?:/.test(location.protocol) || !window.fetch) return;
+  fetch(location.pathname+"?u="+Date.now(), {cache:"no-store"}).then(function(r){ return r.ok ? r.text() : ""; }).then(function(txt){
+    var m = /name="kl-version" content="([^"]+)"/.exec(txt.slice(0,4000));
+    if(!m || !MY_VER || m[1]===MY_VER) return;
+    var busy = !modal.hidden || !appsModal.hidden || !fullmap.hidden || !pop.hidden || !$("siteModal").hidden || kyivAlert===true;
+    if(busy) return;
+    toast("Оновлення лаунчера…");
+    setTimeout(function(){ location.replace(location.pathname+"?v="+encodeURIComponent(m[1])); }, 1200);
+  }).catch(function(){});
+}
+setTimeout(checkUpdate, 15000); setInterval(checkUpdate, 15*60*1000);
 })();
 </script>
 </body>
