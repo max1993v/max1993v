@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Київ Лаунчер</title>
-<meta name="kl-version" content="261029.2232">
+<meta name="kl-version" content="261029.2257">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700&display=swap">
 <style>
@@ -205,6 +205,11 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
 .lite .apps,.lite .apps.more-l,.lite .apps.more-r,.lite .apps.more-l.more-r{-webkit-mask-image:none;mask-image:none}
 .lite .bg{transition:none;background-size:cover;background-position:62% 40%}
 .lite .card{box-shadow:none}
+/* швидкий режим: без анімацій і плавних переходів — миттєва реакція на пульт */
+.lite *,.lite *::before,.lite *::after{transition:none!important;animation:none!important}
+.lite .apps{scroll-behavior:auto}
+.lite .app:focus .tile,.lite .app:hover .tile{transform:none;box-shadow:0 0 0 5px #fff}
+.lite .chip:focus,.lite .chip:hover{transform:none}
 .lite .app:focus .tile,.lite .app:hover .tile{box-shadow:0 0 0 4px #fff}
 .lite .glow{animation:none;box-shadow:inset 0 0 0 10px rgba(226,50,63,.9)}
 .lite .banner{animation:none}
@@ -332,7 +337,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
   </section>
 
   <nav class="apps" id="apps"></nav>
-  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.2232</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
+  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.2257</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
 
   <div class="fullmap" id="fullmap" hidden>
     <header><div><b>Мапа тривог</b> <span>· alerts.in.ua онлайн</span></div><button class="btn" id="bMapClose">Назад до лаунчера</button></header>
