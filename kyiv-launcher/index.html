@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Київ Лаунчер</title>
-<meta name="kl-version" content="261029.2228">
+<meta name="kl-version" content="261029.2232">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700&display=swap">
 <style>
@@ -332,7 +332,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
   </section>
 
   <nav class="apps" id="apps"></nav>
-  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.2228</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
+  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.2232</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
 
   <div class="fullmap" id="fullmap" hidden>
     <header><div><b>Мапа тривог</b> <span>· alerts.in.ua онлайн</span></div><button class="btn" id="bMapClose">Назад до лаунчера</button></header>
@@ -671,8 +671,10 @@ function setBg(key){
   activeLayer=1-activeLayer; curBg=key;
 }
 
-var cv = $("sky"), ctx = cv.getContext("2d");
-if(LITE){ cv.width=960; cv.height=540; }
+/* у швидкому режимі полотно не створюємо взагалі: слабкі GPU (Mali/старий WebView) гублять контекст і мигають */
+var cv = $("sky"), ctx = null;
+if(LITE){ cv.hidden = true; cv.width = 1; cv.height = 1; }
+else ctx = cv.getContext("2d");
 var R = cv.width/1920;
 var reduce = false; try{ reduce = matchMedia("(prefers-reduced-motion: reduce)").matches }catch(e){}
 function rnd(seed){ return function(){ seed = (seed*1664525+1013904223)>>>0; return seed/4294967296; } }
@@ -730,10 +732,11 @@ function perfSample(gap){
   pfN++; pfSum+=gap;
   if(pfN>=160){
     pfDone=true;
-    if(pfSum/pfN > 70){ try{localStorage.setItem("kyivLauncherSlow","1")}catch(e){} decidePerf(); cv.width=960; cv.height=540; R=cv.width/1920; cur.kind=""; updateScene(); }
+    if(pfSum/pfN > 70){ try{localStorage.setItem("kyivLauncherSlow","1")}catch(e){} decidePerf(); cv.hidden=true; cur.kind=""; updateScene(); }
   }
 }
 function frame(ts){
+  if(LITE){ cv.hidden=true; return; }
   requestAnimationFrame(frame);
   if(document.hidden) return;
   if(ts-last < FPS_STEP) return;
@@ -743,6 +746,7 @@ function frame(ts){
 }
 var idleCleared=false;
 function draw(dt, ts){
+  if(LITE || !ctx){ if(!cv.hidden) cv.hidden=true; return; }
   if(LITE && !parts.length && cur.kind!=="fog" && cur.kind!=="storm"){
     if(!idleCleared){ ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height); idleCleared=true; }
     return;
@@ -802,7 +806,7 @@ function makeBolt(){ var x=200+Math.random()*1500, y=0, pts=[[x,y]]; while(y<480
 setInterval(updateScene, 30000);
 updateScene();
 if(reduce){ draw(0,0); setInterval(function(){updateScene(); draw(0,performance.now());}, 30000); }
-else requestAnimationFrame(frame);
+else if(!LITE) requestAnimationFrame(frame);
 var _rw = renderWeather; renderWeather = function(){ _rw(); updateScene(); if(reduce) draw(0,0); };
 
 /* ================= ALERT MAP ================= */
