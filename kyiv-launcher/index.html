@@ -292,9 +292,9 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
       <div class="edlist" id="edList"></div>
       <h4>Додати з каталогу</h4>
       <div class="catalog" id="catalog"></div>
-      <h4>Свій застосунок</h4>
-      <div class="custom"><input id="cName" type="text" placeholder="Назва, напр. Lampa" autocomplete="off"><input id="cPkg" type="text" placeholder="Пакет, напр. top.rootu.lampa" autocomplete="off" spellcheck="false"><button class="btn primary" id="cAdd">Додати</button></div>
-      <p class="hint">Пакет видно в Play Маркеті на телефоні: в адресі сторінки застосунку після «id=».</p>
+      <h4>Свій застосунок або сайт</h4>
+      <div class="custom"><input id="cName" type="text" placeholder="Назва, напр. Lampa" autocomplete="off"><input id="cPkg" type="text" placeholder="Пакет (top.rootu.lampa) або сайт (https://…)" autocomplete="off" spellcheck="false"><button class="btn primary" id="cAdd">Додати</button></div>
+      <p class="hint">Пакет видно в Play Маркеті на телефоні: в адресі сторінки застосунку після «id=». Для сайту просто впишіть адресу, напр. https://newbalance.ua</p>
       <div class="btns"><button class="btn" id="apReset">Скинути як було</button><button class="btn primary" id="apDone">Готово</button></div>
     </div>
   </div>
@@ -334,7 +334,8 @@ var APPS = [
   {name:"Spotify",     pkg:"com.spotify.tv.android",            bg:"#101010", fg:"#1ed760", glyph:"wave"},
   {name:"Chrome",      pkg:"com.android.chrome",                bg:"#f3f4f6", fg:"#1a73e8", glyph:"globe"},
   {name:"X-plore",     pkg:"com.lonelycatgames.Xplore",         bg:"#2a2112", fg:"#f6b73c", glyph:"folder"},
-  {name:"Play Маркет", pkg:"com.android.vending",               bg:"#f3f4f6", fg:"#01875f", glyph:"tri"}
+  {name:"Play Маркет", pkg:"com.android.vending",               bg:"#f3f4f6", fg:"#01875f", glyph:"tri"},
+  {name:"New Balance", url:"https://newbalance.ua/", pkg:"url:newbalance.ua", bg:"#1c1c1e", fg:"#ffffff", glyph:"NB"}
 ];
 var SETTINGS_TILE = {name:"Налаштування",pkg:"__settings__", bg:"#1a2132", fg:"#c9d3e6", glyph:"gear"};
 var DEFAULT_APPS = APPS.slice();
@@ -366,6 +367,18 @@ var CATALOG = [
   {name:"Fully Kiosk", pkg:"de.ozerov.fully", bg:"#1b2b4b", fg:"#ffffff", glyph:"F"}
 ];
 try{ var savedApps = JSON.parse(localStorage.getItem("kyivLauncherApps")||"null"); if(savedApps && savedApps.length!=null) APPS = savedApps; }catch(e){}
+/* одноразово додаємо нові стандартні плитки до вже збереженого списку */
+(function(){
+  var NEW = ["url:newbalance.ua"], done = [];
+  try{ done = JSON.parse(localStorage.getItem("kyivLauncherAdded")||"[]"); }catch(e){}
+  NEW.forEach(function(pk){
+    if(done.indexOf(pk)>=0) return;
+    var def = DEFAULT_APPS.filter(function(a){return a.pkg===pk})[0];
+    if(def && !APPS.some(function(a){return a.pkg===pk})) APPS.push(JSON.parse(JSON.stringify(def)));
+    done.push(pk);
+  });
+  try{ localStorage.setItem("kyivLauncherAdded", JSON.stringify(done)); localStorage.setItem("kyivLauncherApps", JSON.stringify(APPS)); }catch(e){}
+})();
 function saveApps(){ try{ localStorage.setItem("kyivLauncherApps", JSON.stringify(APPS)); }catch(e){} }
 function autoColor(name){ var h=0; for(var i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))%360; return {bg:"hsl("+h+",45%,26%)", fg:"hsl("+h+",90%,82%)"}; }
 var MAP = {"paths": {"crimea": "M342.7,251.4L336.6,256.0L352.5,272.0L387.0,282.0L381.7,296.0L357.8,298.0L328.7,320.0L304.8,320.0L304.8,296.0L278.3,284.0L296.7,266.6Z", "volyn": "M50.2,72.4L55.7,66.0L42.4,40.0L63.6,24.0L92.8,23.2L103.6,26.3L89.4,87.6L84.5,88.6Z", "vinnytsia": "M186.8,179.6L177.6,174.0L148.4,162.0L143.0,163.2L140.5,157.7L161.1,106.4L192.5,105.0L210.2,124.6L212.4,166.0Z", "dnipro": "M382.7,160.9L380.0,173.9L323.8,197.6L303.5,187.3L303.5,157.8L347.2,128.8Z", "donetsk": "M459.3,183.8L445.3,188.0L429.4,216.0L410.8,220.0L404.2,224.3L380.0,173.9L382.7,160.9L412.5,142.4Z", "zhytomyr": "M151.0,36.0L164.3,36.0L190.8,44.0L206.2,41.7L192.5,105.0L161.1,106.4L136.7,85.8Z", "zakarpattia": "M4.0,164.0L14.8,136.8L17.0,125.2L40.3,136.2L58.1,183.5L53.0,182.0L23.9,182.0Z", "zaporizhzhia": "M404.2,224.3L392.3,232.0L365.8,236.0L346.9,248.5L323.8,197.6L380.0,173.9Z", "ivanofrankivsk": "M69.3,186.9L58.1,183.5L40.3,136.2L71.2,123.9L92.4,147.3Z", "kyivobl": "M206.2,41.7L217.0,40.0L269.7,92.4L210.2,124.6L192.5,105.0Z", "kirovohrad": "M303.5,157.8L303.5,187.3L301.8,188.3L233.9,184.2L217.1,167.9L282.7,135.3Z", "luhansk": "M427.7,98.9L429.4,100.0L455.9,104.0L479.7,116.0L469.1,148.0L471.8,180.0L459.3,183.8L412.5,142.4Z", "lviv": "M17.0,125.2L18.0,120.0L37.1,88.0L50.2,72.4L84.5,88.6L71.2,123.9L40.3,136.2Z", "mykolaiv": "M268.8,250.3L259.7,248.0L251.8,236.0L242.9,237.9L233.9,184.2L301.8,188.3Z", "odesa": "M242.9,237.9L233.2,240.0L217.3,266.0L204.1,288.0L164.3,282.0L182.9,260.0L184.2,240.0L209.4,244.0L214.7,228.0L201.4,204.0L190.8,182.0L186.8,179.6L212.4,166.0L217.1,167.9L233.9,184.2Z", "poltava": "M347.2,128.8L303.5,157.8L282.7,135.3L274.8,93.4L286.0,85.9L347.2,97.5Z", "rivne": "M103.6,26.3L137.8,36.0L151.0,36.0L136.7,85.8L110.9,93.8L89.4,87.6Z", "sumy": "M306.2,12.4L328.7,28.0L323.4,52.0L355.2,76.0L364.2,79.9L347.2,97.5L286.0,85.9Z", "ternopil": "M84.5,88.6L89.4,87.6L110.9,93.8L116.2,143.0L92.4,147.3L71.2,123.9Z", "kharkiv": "M364.2,79.9L373.7,84.0L410.8,88.0L427.7,98.9L412.5,142.4L382.7,160.9L347.2,128.8L347.2,97.5Z", "kherson": "M346.9,248.5L344.6,250.0L342.7,251.4L296.7,266.6L299.5,264.0L291.6,256.0L268.8,250.3L301.8,188.3L303.5,187.3L323.8,197.6Z", "khmelnytskyi": "M161.1,106.4L140.5,157.7L116.2,143.0L110.9,93.8L136.7,85.8Z", "cherkasy": "M282.7,135.3L217.1,167.9L212.4,166.0L210.2,124.6L269.7,92.4L274.8,93.4Z", "chernivtsi": "M140.5,157.7L143.0,163.2L121.9,168.0L79.5,190.0L69.3,186.9L92.4,147.3L116.2,143.0Z", "chernihiv": "M217.0,40.0L217.3,40.0L226.6,16.0L259.7,16.0L275.6,8.0L296.9,6.0L306.2,12.4L286.0,85.9L274.8,93.4L269.7,92.4Z"}, "kyiv": [225.8, 82.0]};
@@ -792,7 +805,7 @@ var GLYPH = {
 };
 GLYPH.tv='<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"><rect x="5" y="10" width="38" height="24" rx="4"/><path d="M17 40h14"/></svg>';
 function esc(s){ return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]}); }
-function glyphHTML(a){ return GLYPH[a.glyph] || esc(a.glyph || (a.name||"?").charAt(0).toUpperCase()); }
+function glyphHTML(a){ if(GLYPH[a.glyph]) return GLYPH[a.glyph]; var g=a.glyph || (a.name||"?").charAt(0).toUpperCase(); return g.length>1 ? '<b style="font-size:.8em;letter-spacing:-.04em;font-style:italic">'+esc(g)+'</b>' : esc(g); }
 var appsEl=$("apps"), btns=[];
 function renderApps(){
   appsEl.innerHTML=""; btns.length=0;
@@ -841,8 +854,19 @@ function viaFully(fn){ return function(){ var f=F(); if(!f) throw 0; fn(f); }; }
 function viaHref(uri){ return function(){ location.href=uri; }; }
 var NO_JS = "Не відкрилось. У Fully увімкніть Settings → Advanced Web Settings → Enable JavaScript Interface";
 function openIntent(uri){ tryChain([viaFully(function(f){ f.startIntent(uri); }), viaHref(uri)], NO_JS); }
+function openUrl(url, name){
+  var u=url.replace(/^https?:\/\//,""), sch=/^http:/.test(url)?"http":"https";
+  tryChain([
+    viaFully(function(f){ f.startIntent("intent://"+u+"#Intent;scheme="+sch+";action=android.intent.action.VIEW;launchFlags=0x10000000;end"); }),
+    viaFully(function(f){ f.startIntent("intent://"+u+"#Intent;scheme="+sch+";package=com.android.chrome;launchFlags=0x10000000;end"); }),
+    viaFully(function(f){ f.startIntent("intent://"+u+"#Intent;scheme="+sch+";package=com.phlox.tvwebbrowser;launchFlags=0x10000000;end"); }),
+    viaHref("intent://"+u+"#Intent;scheme="+sch+";action=android.intent.action.VIEW;end"),
+    function(){ toast("Відкриваю "+(name||"сайт")+" тут. Назад — кнопка «Назад» на пульті"); setTimeout(function(){ location.href=url; }, 900); }
+  ], null);
+}
 function launch(a){
   if(a.pkg==="__settings__"){ openModal(); return; }
+  if(a.url){ openUrl(a.url, a.name); return; }
   tryChain([
     viaFully(function(f){ f.startApplication(a.pkg); }),
     viaHref("intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LEANBACK_LAUNCHER;package="+a.pkg+";end"),
@@ -1123,10 +1147,21 @@ $("bApps").addEventListener("click", openApps);
 $("apDone").addEventListener("click", closeApps);
 $("apReset").addEventListener("click", function(){ APPS=DEFAULT_APPS.map(function(a){return JSON.parse(JSON.stringify(a))}); saveApps(); moving=-1; renderEditor("ed0"); toast("Повернуто стандартний набір"); });
 $("cAdd").addEventListener("click", function(){
-  var n=$("cName").value.trim(), pk=$("cPkg").value.trim().replace(/^.*[?&]id=/,"").replace(/[&#].*$/,"");
-  if(!n || !/^[a-zA-Z][\w]*(\.[\w]+)+$/.test(pk)){ toast("Вкажіть назву і пакет, напр. top.rootu.lampa"); return; }
-  if(APPS.some(function(x){return x.pkg===pk})){ toast(n+" вже на екрані"); return; }
-  var c=autoColor(n); APPS.push({name:n, pkg:pk, bg:c.bg, fg:c.fg, glyph:n.charAt(0).toUpperCase()});
+  var n=$("cName").value.trim(), raw=$("cPkg").value.trim(), item;
+  var isUrl = /^https?:\/\//i.test(raw) || (/^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(raw) && !/[?&]id=/.test(raw) && /\.(ua|com|net|org|tv|io|me|eu|info|shop|store)(\/|$)/i.test(raw));
+  var c=autoColor(n||raw);
+  if(isUrl){
+    var url = /^https?:/i.test(raw) ? raw : "https://"+raw;
+    var host = url.replace(/^https?:\/\//i,"").replace(/\/.*$/,"");
+    if(!n) n=host.replace(/^www\./,"");
+    item={name:n, url:url, pkg:"url:"+host+url.replace(/^https?:\/\/[^\/]+/i,""), bg:c.bg, fg:c.fg, glyph:n.charAt(0).toUpperCase()};
+  } else {
+    var pk=raw.replace(/^.*[?&]id=/,"").replace(/[&#].*$/,"");
+    if(!n || !/^[a-zA-Z][\w]*(\.[\w]+)+$/.test(pk)){ toast("Вкажіть назву і пакет (top.rootu.lampa) або адресу сайту (https://…)"); return; }
+    item={name:n, pkg:pk, bg:c.bg, fg:c.fg, glyph:n.charAt(0).toUpperCase()};
+  }
+  if(APPS.some(function(x){return x.pkg===item.pkg})){ toast(n+" вже на екрані"); return; }
+  APPS.push(item);
   saveApps(); $("cName").value=""; $("cPkg").value=""; renderEditor("ed"+(APPS.length-1)); toast("Додано: "+n);
 });
 /* просторова навігація пультом всередині вікна */
