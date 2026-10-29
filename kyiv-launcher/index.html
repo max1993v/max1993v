@@ -970,7 +970,15 @@ function updateNet(){
   if(c && c.type){ if(c.type==="ethernet") eth=true; if(c.type==="wifi") wifi=true; if(c.type==="none") online=false; }
   if(online && wifi===false && f) eth = true;
   var bars = 4;
-  if(level!=null && !isNaN(level)){ bars = level>4 ? Math.max(1,Math.ceil(level/25)) : Math.max(1,level); }
+  if(level!=null && !isNaN(level)){
+    if(level<0){            // RSSI у дБм: −50 відмінно … −80 погано
+      bars = level>=-60 ? 4 : level>=-67 ? 3 : level>=-75 ? 2 : 1;
+    } else if(level<=4){    // шкала Android 0–4
+      bars = Math.max(1, Math.round(level));
+    } else {                // відсотки 0–100
+      bars = level>=75 ? 4 : level>=50 ? 3 : level>=25 ? 2 : 1;
+    }
+  }
   if(ssid==="<unknown ssid>"||ssid==="0x") ssid="";
   var chip=$("cWifi");
   chip.classList.toggle("off", !online);
