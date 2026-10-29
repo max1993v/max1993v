@@ -46,9 +46,9 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
 .brand{position:absolute;left:84px;top:70px}
 .brand h1{margin:0;font-family:var(--display);font-weight:300;font-size:132px;letter-spacing:.06em;line-height:1;text-shadow:0 4px 30px rgba(0,0,0,.35)}
 .brand .tag{text-shadow:0 2px 12px rgba(0,0,0,.6);margin-top:14px;font-family:var(--display);font-weight:300;font-size:22px;letter-spacing:.42em;text-transform:uppercase;color:var(--ink-2)}
-.cond{position:absolute;left:84px;top:330px;display:flex;align-items:center;gap:18px;font-size:30px;font-weight:600;text-shadow:0 2px 18px rgba(0,0,0,.5)}
+.cond{position:absolute;left:84px;top:300px;display:flex;align-items:center;gap:18px;font-size:30px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.7),0 2px 18px rgba(0,0,0,.6)}
 .cond svg{width:56px;height:56px;flex:none}
-.cond small{display:block;font-size:20px;font-weight:500;color:var(--ink-2);margin-top:4px}
+.cond small{display:block;font-size:20px;font-weight:600;color:#eef2f8;margin-top:4px;text-shadow:0 1px 3px rgba(0,0,0,.8),0 2px 14px rgba(0,0,0,.7)}
 
 /* clock + weather */
 /* system bar */
@@ -74,14 +74,26 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
 .card h2{margin:0;font-size:16px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
 
 /* hourly */
-.hourly{left:84px;top:476px;width:800px;padding:22px 26px}
-.hours{display:grid;grid-template-columns:repeat(8,1fr);margin-top:16px}
-.h{display:flex;flex-direction:column;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.hourly{left:84px;top:392px;width:800px;padding:18px 26px 16px}
+.hours{display:grid;grid-template-columns:repeat(8,1fr);margin-top:10px}
+.h{display:flex;flex-direction:column;align-items:center;gap:4px;font-variant-numeric:tabular-nums}
+.hourly .sep{height:1px;background:var(--line);margin:12px 0 12px}
+.days{display:grid;grid-template-columns:repeat(7,1fr);margin-top:10px}
+.d{display:flex;flex-direction:column;align-items:center;gap:3px;font-variant-numeric:tabular-nums}
+.d + .d{border-left:1px solid var(--line)}
+.d .t{font-size:17px;color:var(--ink-2);font-weight:700}
+.d .dt{font-size:13px;color:var(--ink-3);font-weight:600;margin-top:-3px}
+.d svg{width:40px;height:40px}
+.d .mx{font-size:23px;font-weight:700}
+.d .mn{font-size:17px;color:var(--ink-3);font-weight:600}
+.d .p{font-size:14px;color:#8fc1ff;font-weight:600;min-height:18px}
+.d.cur .t{color:var(--gold)}
+.d.wknd .t{color:#ffb4a6}
 .h + .h{border-left:1px solid var(--line)}
-.h .t{font-size:18px;color:var(--ink-3);font-weight:600}
-.h svg{width:44px;height:44px}
-.h .v{font-size:26px;font-weight:700}
-.h .p{font-size:15px;color:#8fc1ff;font-weight:600;min-height:20px}
+.h .t{font-size:16px;color:var(--ink-3);font-weight:600}
+.h svg{width:38px;height:38px}
+.h .v{font-size:23px;font-weight:700}
+.h .p{font-size:14px;color:#8fc1ff;font-weight:600;min-height:18px}
 .h.cur .t{color:var(--gold)}
 
 /* alert map */
@@ -258,6 +270,9 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
   <section class="card hourly">
     <h2>Погода по годинах</h2>
     <div class="hours" id="hours"></div>
+    <div class="sep"></div>
+    <h2>На тиждень</h2>
+    <div class="days" id="days"></div>
   </section>
 
   <section class="card alerts">
@@ -513,7 +528,7 @@ function loadWeather(){
   var u = "https://api.open-meteo.com/v1/forecast?latitude="+KYIV.lat+"&longitude="+KYIV.lon+
     "&current=temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,cloud_cover,precipitation,wind_speed_10m,snow_depth"+
     "&hourly=temperature_2m,weather_code,precipitation_probability,is_day"+
-    "&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone="+encodeURIComponent(KYIV.tz)+"&forecast_days=2&wind_speed_unit=ms";
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone="+encodeURIComponent(KYIV.tz)+"&forecast_days=7&wind_speed_unit=ms";
   fetchJSON(u).then(function(j){ W = j; renderWeather(); }).catch(function(){ if(!W) renderWeather(); });
 }
 function renderWeather(){
@@ -548,9 +563,23 @@ function renderWeather(){
         icon(hc.k, H.is_day[i2]===1)+'<div class="v">'+fmtT(H.temperature_2m[i2])+'</div><div class="p">'+(pp!=null&&pp>=20?pp+"%":"")+'</div></div>';
     }
   } else {
-    html = '<div class="h" style="grid-column:1/-1;color:var(--ink-3);font-size:20px;padding:30px 0">Прогноз з’явиться, щойно буде інтернет</div>';
+    html = '<div class="h" style="grid-column:1/-1;color:var(--ink-3);font-size:18px;padding:16px 0">Прогноз з’явиться, щойно буде інтернет</div>';
   }
   $("hours").innerHTML = html;
+  // 7 днів
+  var dh = "";
+  if(W && W.daily && W.daily.weather_code){
+    var D = W.daily, WD = ["Нд","Пн","Вт","Ср","Чт","Пт","Сб"], MO = ["січ","лют","бер","кві","тра","чер","лип","сер","вер","жов","лис","гру"];
+    for(var di=0; di<D.time.length && di<7; di++){
+      var ps = D.time[di].split("-"), dd = new Date(+ps[0], +ps[1]-1, +ps[2]), wd = dd.getDay();
+      var dc = classify(D.weather_code[di]), pr = D.precipitation_probability_max ? D.precipitation_probability_max[di] : null;
+      dh += '<div class="d'+(di===0?' cur':'')+((wd===0||wd===6)&&di?' wknd':'')+'"><div class="t">'+(di===0?"Сьогодні":WD[wd])+'</div><div class="dt">'+(+ps[2])+' '+MO[+ps[1]-1]+'</div>'+
+        icon(dc.k, true)+'<div class="mx">'+fmtT(D.temperature_2m_max[di])+'</div><div class="mn">'+fmtT(D.temperature_2m_min[di])+'</div><div class="p">'+(pr!=null&&pr>=30?"☂ "+pr+"%":"")+'</div></div>';
+    }
+  } else {
+    dh = '<div class="d" style="grid-column:1/-1;color:var(--ink-3);font-size:18px;padding:16px 0">Прогноз на тиждень з’явиться, щойно буде інтернет</div>';
+  }
+  $("days").innerHTML = dh;
 }
 loadWeather(); setInterval(loadWeather, 10*60*1000);
 
