@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Київ Лаунчер</title>
-<meta name="kl-version" content="261029.1401">
+<meta name="kl-version" content="261029.1407">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700&display=swap">
 <style>
@@ -21,6 +21,7 @@
   --partial:#f08a3c;
   --calm:#2f3d55;
   --ok:#35d07f;
+  --card-bottom:304px; /* однаковий відступ карток від ряду застосунків */
   --display:"Unbounded","Manrope",system-ui,sans-serif;
   --body:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   color-scheme:dark;
@@ -47,7 +48,9 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
 .brand{position:absolute;left:84px;top:70px}
 .brand h1{margin:0;font-family:var(--display);font-weight:300;font-size:132px;letter-spacing:.06em;line-height:1;text-shadow:0 4px 30px rgba(0,0,0,.35)}
 .brand .tag{text-shadow:0 2px 12px rgba(0,0,0,.6);margin-top:14px;font-family:var(--display);font-weight:300;font-size:22px;letter-spacing:.42em;text-transform:uppercase;color:var(--ink-2)}
-.cond{position:absolute;left:84px;top:300px;display:flex;align-items:center;gap:18px;font-size:30px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.7),0 2px 18px rgba(0,0,0,.6)}
+.leftcol{position:absolute;left:84px;bottom:var(--card-bottom);width:800px;display:flex;flex-direction:column;gap:22px}
+.leftcol .card{position:relative}
+.cond{display:flex;align-items:center;gap:18px;font-size:30px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.7),0 2px 18px rgba(0,0,0,.6)}
 .cond svg{width:56px;height:56px;flex:none}
 .cond small{display:block;font-size:20px;font-weight:600;color:#eef2f8;margin-top:4px;text-shadow:0 1px 3px rgba(0,0,0,.8),0 2px 14px rgba(0,0,0,.7)}
 
@@ -75,7 +78,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
 .card h2{margin:0;font-size:16px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
 
 /* hourly */
-.hourly{left:84px;top:392px;width:800px;padding:18px 26px 16px}
+.hourly{width:800px;padding:18px 26px 16px}
 .hours{display:grid;grid-template-columns:repeat(8,1fr);margin-top:10px}
 .h{display:flex;flex-direction:column;align-items:center;gap:4px;font-variant-numeric:tabular-nums}
 .hourly .sep{height:1px;background:var(--line);margin:12px 0 12px}
@@ -98,7 +101,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
 .h.cur .t{color:var(--gold)}
 
 /* alert map */
-.alerts{right:72px;top:300px;width:640px;padding:22px 24px 20px}
+.alerts{right:72px;bottom:var(--card-bottom);width:640px;padding:22px 24px 20px}
 .ahead{display:flex;justify-content:space-between;align-items:center}
 .legend{display:flex;gap:16px;font-size:15px;color:var(--ink-2)}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
@@ -244,7 +247,6 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
     <h1>Київ</h1>
     <div class="tag">Місто незламних</div>
   </div>
-  <div class="cond" id="cond"></div>
 
   <div class="sysbar" id="sysbar">
     <button class="chip" id="cWifi" title="Налаштування мережі"><span id="wifiIco"></span><span id="wifiTxt">Мережа</span></button>
@@ -268,6 +270,8 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
     </div>
   </div>
 
+  <div class="leftcol">
+  <div class="cond" id="cond"></div>
   <section class="card hourly">
     <h2>Погода по годинах</h2>
     <div class="hours" id="hours"></div>
@@ -275,6 +279,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
     <h2>На тиждень</h2>
     <div class="days" id="days"></div>
   </section>
+  </div>
 
   <section class="card alerts">
     <div class="ahead">
@@ -293,7 +298,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
   </section>
 
   <nav class="apps" id="apps"></nav>
-  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.1401</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
+  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.1407</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
 
   <div class="fullmap" id="fullmap" hidden>
     <header><div><b>Мапа тривог</b> <span>· alerts.in.ua онлайн</span></div><button class="btn" id="bMapClose">Назад до лаунчера</button></header>
