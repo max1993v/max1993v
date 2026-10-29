@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Київ Лаунчер</title>
-<meta name="kl-version" content="261029.2212">
+<meta name="kl-version" content="261029.2228">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700&display=swap">
 <style>
@@ -202,6 +202,9 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
 .lite .bg{transition:opacity .8s linear}
 .lite .tint{mix-blend-mode:normal;background:linear-gradient(180deg,rgba(255,122,61,.35),rgba(255,150,90,0) 70%)}
 .lite .app .tile{box-shadow:none;transition:transform .1s}
+.lite .apps,.lite .apps.more-l,.lite .apps.more-r,.lite .apps.more-l.more-r{-webkit-mask-image:none;mask-image:none}
+.lite .bg{transition:none;background-size:cover;background-position:62% 40%}
+.lite .card{box-shadow:none}
 .lite .app:focus .tile,.lite .app:hover .tile{box-shadow:0 0 0 4px #fff}
 .lite .glow{animation:none;box-shadow:inset 0 0 0 10px rgba(226,50,63,.9)}
 .lite .banner{animation:none}
@@ -329,7 +332,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
   </section>
 
   <nav class="apps" id="apps"></nav>
-  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.2212</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
+  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.2228</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
 
   <div class="fullmap" id="fullmap" hidden>
     <header><div><b>Мапа тривог</b> <span>· alerts.in.ua онлайн</span></div><button class="btn" id="bMapClose">Назад до лаунчера</button></header>
@@ -452,7 +455,7 @@ var $ = function(id){return document.getElementById(id)};
 var stage = $("stage");
 
 /* ---------- settings ---------- */
-var S = {group:"", token:"", src:"auto", map:"online", wx:"auto", tod:"auto", season:"auto", perf:"auto", sound:"on", dur:"60"};
+var S = {group:"", token:"", src:"auto", map:"", wx:"auto", tod:"auto", season:"auto", perf:"auto", sound:"on", dur:"60"};
 try{ var raw = localStorage.getItem("kyivLauncher"); if(raw){ var o = JSON.parse(raw); for(var k in o) S[k]=o[k]; } }catch(e){}
 /* продуктивність: авто = швидкий режим на слабкому залізі */
 var LITE = false, FPS_STEP = 33, PART = 1;
@@ -469,6 +472,7 @@ function decidePerf(){
   document.documentElement.classList.toggle("lite", LITE);
 }
 decidePerf();
+function mapMode(){ return S.map || (LITE ? "own" : "online"); }   // слабка приставка → власна мапа
 function saveS(){ try{ localStorage.setItem("kyivLauncher", JSON.stringify(S)); }catch(e){} }
 
 /* ---------- fit to screen ---------- */
@@ -660,6 +664,7 @@ function pickBg(kind, isDay){
 var layers=[$("bgA"),$("bgB")], activeLayer=0, curBg="";
 function setBg(key){
   if(key===curBg) return;
+  if(LITE){ layers[0].style.backgroundImage='url("'+BG[key]+'")'; layers[0].classList.add("on"); layers[1].style.backgroundImage="none"; layers[1].classList.remove("on"); curBg=key; return; }
   var next=layers[1-activeLayer], prev=layers[activeLayer];
   next.style.backgroundImage='url("'+BG[key]+'")';
   next.classList.add("on"); prev.classList.remove("on");
@@ -683,6 +688,7 @@ function makeCloudSprite(col){
   return c;
 }
 function setupClouds(isDay, kind){
+  if(LITE){ clouds=[]; cloudSprite=null; cloudSig=""; return; }
   var col = isDay ? (kind==="clear"||kind==="partly" ? [255,255,255] : [196,202,212]) : [70,80,104];
   var sig = col.join(",");
   if(sig!==cloudSig){ cloudSprite = makeCloudSprite(col); cloudSig = sig; }
@@ -735,7 +741,13 @@ function frame(ts){
   var dt = Math.min(.1, (ts-last)/1000 || .033); last = ts;
   draw(dt, ts);
 }
+var idleCleared=false;
 function draw(dt, ts){
+  if(LITE && !parts.length && cur.kind!=="fog" && cur.kind!=="storm"){
+    if(!idleCleared){ ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height); idleCleared=true; }
+    return;
+  }
+  idleCleared=false;
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,cv.width,cv.height);
   ctx.setTransform(R,0,0,R,0,0);
@@ -1203,7 +1215,7 @@ function runSpeed(){
 var ALERTS_URL = "https://alerts.in.ua/";
 var frameTimer=null;
 function applyMapMode(){
-  var online = S.map!=="own";
+  var online = mapMode()!=="own";
   $("mapbox").hidden = !online; mapEl.style.display = online ? "none" : "";
   $("legend").hidden = online;
   $("mapTitle").textContent = online ? "Мапа тривог · alerts.in.ua" : "Мапа тривог";
@@ -1218,7 +1230,7 @@ function applyMapMode(){
   if(!online){ fr.removeAttribute("src"); }
 }
 // reload the embedded map every 30 min so it never goes stale
-setInterval(function(){ if(S.map!=="own"){ var fr=$("mapFrame"); fr.removeAttribute("src"); applyMapMode(); } }, 30*60*1000);
+setInterval(function(){ if(mapMode()!=="own"){ var fr=$("mapFrame"); fr.removeAttribute("src"); applyMapMode(); } }, 30*60*1000);
 applyMapMode();
 
 var fullmap=$("fullmap");
@@ -1405,7 +1417,7 @@ function spatial(container, dir){
 var modal=$("modal");
 var fields=["bApps","fToken","fSrc","fMap","fWx","fTod","fSeason","fPerf","fGroup","fSound","bTest","fDur","bClose","bSave"];
 function openModal(){
-  $("fToken").value=S.token; $("fSrc").value=S.src; $("fMap").value=S.map||"online"; $("fWx").value=S.wx; $("fTod").value=S.tod; $("fSeason").value=S.season||"auto"; $("fPerf").value=S.perf||"auto"; $("fGroup").value=S.group||""; $("fSound").value=S.sound||"on"; $("fDur").value=S.dur||"60";
+  $("fToken").value=S.token; $("fSrc").value=S.src; $("fMap").value=mapMode(); $("fWx").value=S.wx; $("fTod").value=S.tod; $("fSeason").value=S.season||"auto"; $("fPerf").value=S.perf||"auto"; $("fGroup").value=S.group||""; $("fSound").value=S.sound||"on"; $("fDur").value=S.dur||"60";
   modal.hidden=false; $("bApps").focus();
 }
 function closeModal(){ modal.hidden=true; focusAt(row, col); }
