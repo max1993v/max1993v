@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Київ Лаунчер</title>
+<style>html,body{margin:0;height:100%;background:#04060b;color:#aeb8c8;font:600 26px/1.4 system-ui,sans-serif}body{display:flex;align-items:center;justify-content:center;text-align:center}</style>
+</head><body><div id="m">Завантаження лаунчера…</div>
+<script>
+/* Київ Лаунчер — локальний завантажувач для Fully Kiosk.
+   Бере свіжу версію з GitHub і запускає її як локальний файл,
+   щоб працювали дані YASNO; без інтернету відкриває останню копію. */
+var REMOTE = "https://max1993v.github.io/max1993v/kyiv-launcher/";
+window.KL_REMOTE = REMOTE;
+function show(html){
+  html = html.replace(/<head>/i, '<head><script>window.KL_REMOTE=' + JSON.stringify(REMOTE) + ';<\/script>');
+  document.open(); document.write(html); document.close();
+}
+function cached(){ try{ return localStorage.getItem("kl_html"); }catch(e){ return null; } }
+function fail(){
+  var c = cached();
+  if(c){ show(c); return; }
+  document.getElementById("m").textContent = "Немає інтернету. Повтор через 10 секунд…";
+  setTimeout(function(){ location.reload(); }, 10000);
+}
+var x = new XMLHttpRequest();
+x.open("GET", REMOTE + "?l=" + Date.now(), true);
+x.timeout = 12000;
+x.onload = function(){
+  if(x.status === 200 && x.responseText.indexOf("kl-version") > 0){
+    try{ localStorage.setItem("kl_html", x.responseText); }catch(e){}
+    show(x.responseText);
+  } else fail();
+};
+x.onerror = x.ontimeout = fail;
+x.send();
+</script></body></html>

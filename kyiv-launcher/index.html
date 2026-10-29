@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Київ Лаунчер</title>
-<meta name="kl-version" content="261029.1420">
+<meta name="kl-version" content="261029.1424">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700&display=swap">
 <style>
@@ -321,7 +321,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
   </section>
 
   <nav class="apps" id="apps"></nav>
-  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.1420</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
+  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.1424</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
 
   <div class="fullmap" id="fullmap" hidden>
     <header><div><b>Мапа тривог</b> <span>· alerts.in.ua онлайн</span></div><button class="btn" id="bMapClose">Назад до лаунчера</button></header>
@@ -870,6 +870,12 @@ function hm(min){ min=Math.round(min); var h=Math.floor(min/60)%24, m=min%60; re
 function kyivDow(){ try{ var w=new Intl.DateTimeFormat("en-GB",{timeZone:KYIV.tz,weekday:"short"}).format(new Date()); return ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].indexOf(w); }catch(e){ return (new Date().getDay()+6)%7; } }
 function definite(slots){ return (slots||[]).filter(function(s){ return s.type==="Definite"; }).map(function(s){ return {s:+s.start, e:+s.end}; }).sort(function(a,b){return a.s-b.s}); }
 function merge(list){ var out=[]; list.forEach(function(x){ var l=out[out.length-1]; if(l && x.s<=l.e) l.e=Math.max(l.e,x.e); else out.push({s:x.s,e:x.e}); }); return out; }
+function fetchCross(url, ms){
+  return fetchJSON(url, ms).catch(function(e){
+    if(location.protocol==="file:") throw e;   // у режимі завантажувача CORS не заважає
+    return fetchJSON("https://api.allorigins.win/raw?url="+encodeURIComponent(url), ms||15000);
+  });
+}
 function loadPower(){
   var box=$("power");
   if(!S.group){ box.hidden=true; $("cond").hidden=false; return; }
@@ -877,8 +883,8 @@ function loadPower(){
   $("pTitle").textContent="Світло · черга "+S.group;
   var got=0, fail=0;
   function done(){ if(got+fail<2) return; PW.err = !got; if(got) PW.ok=Date.now(); renderPower(); }
-  fetchJSON(YASNO.planned+"?_="+Date.now(), 12000).then(function(j){ PW.planned=j; got++; done(); }).catch(function(){ fail++; done(); });
-  fetchJSON(YASNO.probable+"&_="+Date.now(), 12000).then(function(j){ PW.probable=j; got++; done(); }).catch(function(){ fail++; done(); });
+  fetchCross(YASNO.planned+"?_="+Date.now(), 12000).then(function(j){ PW.planned=j; got++; done(); }).catch(function(){ fail++; done(); });
+  fetchCross(YASNO.probable+"&_="+Date.now(), 12000).then(function(j){ PW.probable=j; got++; done(); }).catch(function(){ fail++; done(); });
 }
 function powerDays(){
   // повертає [{label, sub, list:[{s,e}], prob:bool, status}]
@@ -1419,14 +1425,16 @@ document.addEventListener("visibilitychange", function(){ if(!document.hidden){ 
 /* автооновлення: якщо на GitHub нова версія — перезавантажуємось (не під час тривоги чи відкритих вікон) */
 var MY_VER = (document.querySelector('meta[name="kl-version"]')||{}).content || "";
 function checkUpdate(){
-  if(!/^https?:/.test(location.protocol) || !window.fetch) return;
-  fetch(location.pathname+"?u="+Date.now(), {cache:"no-store"}).then(function(r){ return r.ok ? r.text() : ""; }).then(function(txt){
+  var remote = window.KL_REMOTE || (/^https?:/.test(location.protocol) ? location.pathname : "");
+  if(!remote) return;
+  var x=new XMLHttpRequest(); x.open("GET", remote+"?u="+Date.now(), true); x.timeout=15000;
+  new Promise(function(res){ x.onload=function(){ res(x.status===200 ? x.responseText : ""); }; x.onerror=x.ontimeout=function(){ res(""); }; x.send(); }).then(function(txt){
     var m = /name="kl-version" content="([^"]+)"/.exec(txt.slice(0,4000));
     if(!m || !MY_VER || m[1]===MY_VER) return;
     var busy = !modal.hidden || !appsModal.hidden || !fullmap.hidden || !pop.hidden || !$("siteModal").hidden || kyivAlert===true;
     if(busy) return;
     toast("Оновлення лаунчера…");
-    setTimeout(function(){ location.replace(location.pathname+"?v="+encodeURIComponent(m[1])); }, 1200);
+    setTimeout(function(){ if(window.KL_REMOTE) location.reload(); else location.replace(location.pathname+"?v="+encodeURIComponent(m[1])); }, 1200);
   }).catch(function(){});
 }
 setTimeout(checkUpdate, 15000); setInterval(checkUpdate, 15*60*1000);
