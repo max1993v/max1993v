@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Київ Лаунчер</title>
-<meta name="kl-version" content="261029.2303">
+<meta name="kl-version" content="261029.2312">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700&display=swap">
 <style>
@@ -124,13 +124,21 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
 /* alert map */
 .alerts{right:72px;bottom:var(--card-bottom);width:640px;padding:22px 24px 20px}
 .ahead{display:flex;justify-content:space-between;align-items:center}
-.legend{display:flex;gap:16px;font-size:15px;color:var(--ink-2)}
+.legend{display:flex;font-size:13px;color:var(--ink-2);white-space:nowrap}
+.legend span{margin-left:10px}
+.legend i{width:11px!important;height:11px!important;margin-right:5px!important}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 #map{display:block;width:100%;height:340px;margin-top:6px}
 #map path{stroke:rgba(200,215,240,.35);stroke-width:1;stroke-linejoin:round;fill-rule:evenodd;transition:fill .6s}
 #map .st-N{fill:var(--calm)}
-#map .st-A{fill:var(--alert)}
+#map .st-A,#map .st-R{fill:var(--alert)}
+#map .st-Y{fill:#f2c14e}
+#map .st-O{fill:#f08a3c}
 #map .st-P{fill:var(--partial)}
+#map .st-Pr{fill:#e2323f;fill-opacity:.45}
+#map .st-Py{fill:#f2c14e;fill-opacity:.45}
+#map .st-Po{fill:#f08a3c;fill-opacity:.45}
+.legend i.half{opacity:.5}
 #map .st-U{fill:#26304a}
 #map .lbl{font:600 11px var(--body);fill:#dfe6f2;paint-order:stroke;stroke:rgba(4,6,11,.75);stroke-width:3px}
 #map .dot{fill:#fff}
@@ -323,7 +331,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
   <section class="card alerts">
     <div class="ahead">
       <h2 id="mapTitle">Мапа тривог</h2>
-      <div class="legend" id="legend"><span><i style="background:var(--alert)"></i>Тривога</span><span><i style="background:var(--partial)"></i>Частково</span><span><i style="background:var(--calm)"></i>Спокійно</span></div>
+      <div class="legend" id="legend"><span><i style="background:var(--alert)"></i>Тривога</span><span><i style="background:var(--calm)"></i>Немає тривоги</span></div>
     </div>
     <div class="mapbox" id="mapbox" hidden>
       <div class="note" id="mapNote">Завантажую мапу alerts.in.ua…</div>
@@ -337,7 +345,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
   </section>
 
   <nav class="apps" id="apps"></nav>
-  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.2303</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
+  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.2312</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
 
   <div class="fullmap" id="fullmap" hidden>
     <header><div><b>Мапа тривог</b> <span>· alerts.in.ua онлайн</span></div><button class="btn" id="bMapClose">Назад до лаунчера</button></header>
@@ -843,13 +851,46 @@ function fromUbilling(j){
   return st;
 }
 var lastOk = 0, lastSrc = "";
+/* alerts.in.ua: повний перелік тривог з рівнями (червоний — ракети/масований удар, жовтий — БпЛА) і артобстрілами */
+var KYIV_THREAT = "";
+function fromActive(j){
+  var list = (j && j.alerts) || [], st = {}, rank = {N:0,P:1,Po:2,Py:3,Pr:4,O:5,Y:6,A:7,R:8}, threats = [];
+  function put(id, code){ if(!id) return; if(!st[id] || rank[code] > rank[st[id]]) st[id] = code; }
+  list.forEach(function(a){
+    if(a.finished_at) return;
+    var obl = a.location_oblast || a.location_title || "";
+    var id = NAMES[norm(obl)] || NAMES[norm(a.location_title||"")];
+    if(!id) return;
+    var full = a.location_type==="oblast" || (id==="kyivcity" && (a.location_type==="city" || a.location_type==="oblast"));
+    var lvl = a.alert_type==="artillery_shelling" ? "o" : (a.alert_level==="yellow" ? "y" : a.alert_level==="red" ? "r" : "");
+    var code = full ? ({r:"R",y:"Y",o:"O"}[lvl] || "A") : ({r:"Pr",y:"Py",o:"Po"}[lvl] || "P");
+    put(id, code);
+    if(id==="kyivcity" && a.alert_type==="air_raid"){
+      (a.threats||[]).forEach(function(th){ if(th && th.source_message) threats.push(th.source_message); });
+      if(!threats.length) threats.push(lvl==="y" ? "Загроза застосування БпЛА" : lvl==="r" ? "Ракетна загроза" : "");
+    }
+  });
+  KYIV_THREAT = threats.filter(Boolean)[0] || "";
+  st.__levels = true;
+  return st;
+}
+function fromIoT2(str){
+  str = String(str).replace(/[^ARYPN]/g,"");
+  if(str.length < IOT.length) throw new Error("bad format");
+  var st={}; for(var i=0;i<IOT.length;i++){ var c=str.charAt(i); st[IOT[i]] = c==="P" ? "P" : c; }
+  st.__levels = true; KYIV_THREAT = st.kyivcity==="Y" ? "Загроза застосування БпЛА" : st.kyivcity==="R" ? "Ракетна загроза" : "";
+  return st;
+}
 function loadAlerts(){
+  var tk = encodeURIComponent(S.token||"");
+  var tryAIU = function(){ return fetchJSON("https://api.alerts.in.ua/v1/alerts/active.json?token="+tk, 10000).then(function(j){ lastSrc="alerts.in.ua"; return fromActive(j); }); };
+  var tryIoT2 = function(){ return fetchJSON("https://api.alerts.in.ua/v2/iot/active_air_raid_alerts_by_oblast.json?token="+tk, 10000).then(function(j){ lastSrc="alerts.in.ua"; return fromIoT2(j); }); };
   var tryIoT = function(){ return fetchJSON("https://api.alerts.in.ua/v1/iot/active_air_raid_alerts_by_oblast.json?token="+encodeURIComponent(S.token), 10000).then(function(j){ lastSrc="alerts.in.ua"; return fromIoT(j); }); };
   var tryUb = function(){ return fetchJSON("https://ubilling.net.ua/aerialalerts/", 10000).then(function(j){ lastSrc="ubilling.net.ua"; return fromUbilling(j); }); };
   var chain;
-  if(S.src==="alertsinua") chain = tryIoT();
+  if(S.src==="alertsinua") chain = tryAIU().catch(tryIoT2).catch(tryIoT);
   else if(S.src==="ubilling") chain = tryUb();
-  else chain = S.token ? tryIoT().catch(tryUb) : tryUb();
+  else chain = S.token ? tryAIU().catch(tryIoT2).catch(tryIoT).catch(tryUb) : tryUb();
   chain.then(function(st){ lastOk = Date.now(); renderAlerts(st, null); })
        .catch(function(e){ renderAlerts(null, e); });
 }
@@ -859,21 +900,28 @@ function renderAlerts(st, err){
   var box=$("astatus"), msg=$("amsg"), sub=$("asub");
   if(st){
     lastStates = st;
-    var count=0;
+    var count=0, part=0, FULL={A:1,R:1,Y:1,O:1};
+    var VALID={N:1,A:1,R:1,Y:1,O:1,P:1,Pr:1,Py:1,Po:1};
     for(var id in pathEls){
       var s = st[id] || "N";
-      if(id==="crimea" && st.sevastopol==="A") s = "A";
-      if(s==="A") count++;
-      pathEls[id].setAttribute("class","st-"+(s==="A"?"A":s==="P"?"P":"N"));
+      if(id==="crimea" && st.sevastopol && st.sevastopol!=="N" && (!st.crimea || st.crimea==="N")) s = st.sevastopol;
+      if(!VALID[s]) s="N";
+      if(FULL[s]) count++; else if(s!=="N") part++;
+      pathEls[id].setAttribute("class","st-"+s);
     }
-    var k = st.kyivcity || "N";
-    $("kyivDot").setAttribute("class","kyiv st-"+(k==="A"?"A":k==="P"?"P":"N"));
-    mapEl.classList.toggle("kyiv-alert", k==="A");
-    $("banner").hidden = k!=="A";
-    onKyivState(k==="A");
-    box.className = "astatus "+(k==="A"?"is-alert":"");
-    msg.innerHTML = k==="A" ? "У Києві зараз <b>повітряна тривога</b>" : "У Києві зараз <b>немає тривоги</b>";
-    sub.textContent = "Тривога в "+count+" "+plural(count)+" · станом на "+stamp;
+    var k = st.kyivcity || "N"; if(!VALID[k]) k="N";
+    var kAlert = k!=="N" && k!=="O" && k!=="Po";
+    $("kyivDot").setAttribute("class","kyiv st-"+k);
+    mapEl.classList.toggle("kyiv-alert", kAlert);
+    $("banner").hidden = !kAlert;
+    onKyivState(kAlert);
+    box.className = "astatus "+(kAlert?"is-alert":"");
+    msg.innerHTML = kAlert ? "У Києві зараз <b>повітряна тривога</b>" : (k==="O"||k==="Po") ? "У Києві <b>загроза артобстрілу</b>" : "У Києві зараз <b>немає тривоги</b>";
+    sub.textContent = (kAlert && KYIV_THREAT ? KYIV_THREAT+" · " : "") + "Тривога в "+count+" "+plural(count)+(part?" · частково в "+part:"")+" · станом на "+stamp;
+    if(kAlert && KYIV_THREAT){ $("popText").textContent = "Київ · "+KYIV_THREAT+" · пройдіть до укриття"; }
+    $("legend").innerHTML = st.__levels
+      ? '<span><i style="background:#e2323f"></i>Ракети</span><span><i style="background:#f2c14e"></i>БпЛА</span><span><i style="background:#f08a3c"></i>Артобстріл</span><span><i class="half" style="background:#e2323f"></i>Частково</span><span><i style="background:var(--calm)"></i>Немає</span>'
+      : '<span><i style="background:var(--alert)"></i>Тривога</span><span><i style="background:var(--calm)"></i>Немає тривоги</span>';
     $("src").textContent = "Погода: Open-Meteo · Тривоги: "+lastSrc;
   } else {
     // never show "no alert" when data is unknown
@@ -888,7 +936,7 @@ function renderAlerts(st, err){
   }
 }
 function plural(n){ var a=n%10, b=n%100; if(a===1&&b!==11) return "області"; return "областях"; }
-loadAlerts(); setInterval(loadAlerts, 20000);
+loadAlerts(); setInterval(loadAlerts, 30000);
 
 /* ================= POWER: графік YASNO (Київ) ================= */
 var YASNO = {region:25, dso:902,
@@ -1311,7 +1359,7 @@ function showPop(kind){
   clearTimeout(popTimer);
   pop.classList.toggle("clear", kind==="clear");
   $("popTitle").textContent = kind==="clear" ? "Відбій тривоги" : "Повітряна тривога";
-  $("popText").textContent = kind==="clear" ? "Київ · загрозу скасовано" : "Київ · пройдіть до найближчого укриття";
+  $("popText").textContent = kind==="clear" ? "Київ · загрозу скасовано" : (KYIV_THREAT && !testMode ? "Київ · "+KYIV_THREAT+" · пройдіть до укриття" : "Київ · пройдіть до найближчого укриття");
   $("popHint").textContent = kind==="clear" ? "Натисніть будь-яку кнопку, щоб закрити" : (testMode ? "Це тест. Натисніть будь-яку кнопку, щоб зупинити" : "Натисніть будь-яку кнопку на пульті, щоб вимкнути звук");
   pop.hidden=false;
   popTimer=setTimeout(function(){ pop.hidden=true; }, kind==="clear" ? 8000 : 30000);
