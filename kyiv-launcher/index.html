@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Київ Лаунчер</title>
-<meta name="kl-version" content="261029.2150">
+<meta name="kl-version" content="261029.2211">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700&display=swap">
 <style>
@@ -174,7 +174,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
 .foot kbd{font:inherit;border:1px solid var(--line);border-radius:6px;padding:1px 7px;color:var(--ink-2)}
 
 /* alarm banner */
-.banner{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;justify-content:center;gap:18px;background:linear-gradient(90deg,#8c0f1b,#e2323f,#8c0f1b);font-family:var(--display);font-weight:500;font-size:24px;letter-spacing:.08em;text-transform:uppercase;animation:pulse 2s ease-in-out infinite;z-index:5}
+.banner{position:absolute;left:0;right:0;bottom:0;height:64px;display:flex;align-items:center;justify-content:center;gap:18px;background:linear-gradient(90deg,#8c0f1b,#e2323f,#8c0f1b);font-family:var(--display);font-weight:500;font-size:24px;letter-spacing:.08em;text-transform:uppercase;animation:pulse 2s ease-in-out infinite;z-index:5}
 .banner small{font-family:var(--body);font-size:20px;letter-spacing:0;text-transform:none;font-weight:600;opacity:.9}
 @keyframes pulse{50%{filter:brightness(1.25)}}
 /* alarm mode */
@@ -329,7 +329,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
   </section>
 
   <nav class="apps" id="apps"></nav>
-  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.2150</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
+  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.2211</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
 
   <div class="fullmap" id="fullmap" hidden>
     <header><div><b>Мапа тривог</b> <span>· alerts.in.ua онлайн</span></div><button class="btn" id="bMapClose">Назад до лаунчера</button></header>
@@ -983,6 +983,38 @@ function edgeFade(){
   appsEl.classList.toggle("more-r", appsEl.scrollLeft+appsEl.clientWidth < appsEl.scrollWidth-4);
 }
 renderApps(); setTimeout(edgeFade, 100);
+/* Локальний apps.json поруч із завантажувачем (adb push) — свій набір плиток для кожної приставки */
+(function(){
+  if(location.protocol!=="file:") return;
+  var x=new XMLHttpRequest();
+  try{ x.open("GET", "apps.json?_="+Date.now(), true); }catch(e){ return; }
+  x.onload=function(){
+    var txt=x.responseText||""; if(!txt) return;
+    var prev=""; try{ prev=localStorage.getItem("kyivLauncherAppsFile")||""; }catch(e){}
+    if(txt===prev) return;                       // той самий файл — не перезаписуємо ручні зміни
+    var list; try{ list=JSON.parse(txt); }catch(e){ toast("apps.json: помилка у файлі"); return; }
+    if(!list || !list.length) return;
+    var out=[];
+    list.forEach(function(it){
+      if(typeof it==="string") it={pkg:it};
+      if(!it || (!it.pkg && !it.url)) return;
+      var known = CATALOG.concat(DEFAULT_APPS).filter(function(c){ return it.pkg && c.pkg===it.pkg; })[0];
+      var name = it.name || (known && known.name) || it.pkg || it.url;
+      var c = autoColor(name);
+      var item = known ? JSON.parse(JSON.stringify(known)) : {name:name, bg:c.bg, fg:c.fg, glyph:name.charAt(0).toUpperCase()};
+      if(it.name) item.name=it.name;
+      if(it.url){ item.url=it.url; item.pkg="url:"+it.url.replace(/^https?:\/\//,""); }
+      else item.pkg=it.pkg;
+      out.push(item);
+    });
+    if(!out.length) return;
+    APPS=out; saveApps(); renderApps(); setTimeout(edgeFade,100); focusAt(1,0);
+    try{ localStorage.setItem("kyivLauncherAppsFile", txt); }catch(e){}
+    toast("Застосунки оновлено з apps.json ("+out.length+")");
+  };
+  x.onerror=function(){};
+  try{ x.send(); }catch(e){}
+})();
 /* ---------- Android bridge (Fully Kiosk JS Interface, fallback: intent:) ---------- */
 function F(){ return (typeof window.fully!=="undefined" && window.fully) ? window.fully : null; }
 /* Запуск з перевіркою: пробуємо способи по черзі, поки лаунчер не піде у фон */
