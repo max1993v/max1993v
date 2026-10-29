@@ -28,7 +28,7 @@
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;background:#04060b;overflow:hidden}
 body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased}
-#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden;background:#04060b}
+#stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden;background:#04060b}
 #sky{position:absolute;inset:0;width:1920px;height:1080px;display:block}
 .bg{position:absolute;inset:0;background:#04060b 100% 35%/115% auto no-repeat;opacity:0;transition:opacity 2.5s ease}
 .bg.on{opacity:1}
@@ -325,11 +325,27 @@ decidePerf();
 function saveS(){ try{ localStorage.setItem("kyivLauncher", JSON.stringify(S)); }catch(e){} }
 
 /* ---------- fit to screen ---------- */
-function fit(){
-  var s = Math.min(innerWidth/1920, innerHeight/1080);
-  stage.style.transform = "scale("+s+") translate(-50%,-50%)";
+/* Масштаб під будь-який екран: беремо НАЙМЕНШУ з усіх видимих ширин/висот
+   (деякі WebView на ТБ повідомляють 1920, хоча реально показують 960 CSS-пікселів) */
+function viewSize(){
+  var ws=[innerWidth, document.documentElement.clientWidth], hs=[innerHeight, document.documentElement.clientHeight];
+  var vv=window.visualViewport;
+  if(vv){ ws.push(vv.width); hs.push(vv.height); }
+  var qs=/[?&]w=(\d+)/.exec(location.search); if(qs) ws.push(+qs[1]);
+  var w=Math.min.apply(null, ws.filter(function(v){return v>100})), h=Math.min.apply(null, hs.filter(function(v){return v>100}));
+  if(!isFinite(w)) w=1920; if(!isFinite(h)) h=1080;
+  return {w:w, h:h};
 }
-addEventListener("resize", fit); fit();
+function fit(){
+  var v=viewSize(), s=Math.min(v.w/1920, v.h/1080);
+  var x=(v.w-1920*s)/2, y=(v.h-1080*s)/2;
+  stage.style.left="0"; stage.style.top="0";
+  stage.style.transform="translate("+x+"px,"+y+"px) scale("+s+")";
+  document.documentElement.style.width=v.w+"px"; document.documentElement.style.height=v.h+"px";
+}
+addEventListener("resize", fit);
+if(window.visualViewport) visualViewport.addEventListener("resize", fit);
+fit(); addEventListener("load", fit); setTimeout(fit, 500); setTimeout(fit, 2000);
 
 /* ---------- time in Kyiv ---------- */
 var fmtParts=null, fmtDate=null;
