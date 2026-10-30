@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Київ Лаунчер</title>
-<meta name="kl-version" content="261029.2312">
+<meta name="kl-version" content="261030.0833">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500;700&family=Manrope:wght@400;500;600;700&display=swap">
 <style>
@@ -345,7 +345,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
   </section>
 
   <nav class="apps" id="apps"></nav>
-  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261029.2312</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
+  <div class="foot"><span><span id="src">Погода: Open-Meteo · Тривоги: —</span> · <span id="ver">v261030.0833</span></span><span>Пульт: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> вибір · <kbd>OK</kbd> відкрити · <kbd>Menu</kbd> налаштування</span></div>
 
   <div class="fullmap" id="fullmap" hidden>
     <header><div><b>Мапа тривог</b> <span>· alerts.in.ua онлайн</span></div><button class="btn" id="bMapClose">Назад до лаунчера</button></header>
@@ -388,7 +388,7 @@ body{font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased
       <div class="row"><label for="fTod">Час доби</label><select id="fTod"><option value="auto">Як зараз у Києві</option><option value="day">День</option><option value="dusk">Захід сонця</option><option value="night">Ніч</option></select></div>
       <div class="row"><label for="fSeason">Пора року</label><select id="fSeason"><option value="auto">Авто (за снігом у Києві)</option><option value="winter">Зима</option><option value="other">Без снігу</option></select></div>
       <div class="row"><label for="fPerf">Продуктивність</label><select id="fPerf"><option value="auto">Авто (за потужністю приставки)</option><option value="lite">Швидкий режим</option><option value="hq">Максимальна якість</option></select></div>
-      <div class="row"><label for="fGroup">Черга світла (YASNO)</label><select id="fGroup"><option value="">Не показувати</option><option>1.1</option><option>1.2</option><option>2.1</option><option>2.2</option><option>3.1</option><option>3.2</option><option>4.1</option><option>4.2</option><option>5.1</option><option>5.2</option><option>6.1</option><option>6.2</option></select></div>
+      <div class="row"><label for="fGroup">Черга світла (YASNO)</label><select id="fGroup"><option value="">Не показувати</option></select></div>
       <div class="row"><label for="fSound">Звук тривоги</label><div class="inline"><select id="fSound"><option value="on">Сирена + сигнал відбою</option><option value="siren">Тільки сирена</option><option value="off">Вимкнено</option></select><button class="btn" id="bTest">Тест</button></div></div>
       <div class="row"><label for="fDur">Тривалість сирени</label><select id="fDur"><option value="30">30 секунд</option><option value="60">1 хвилина</option><option value="120">2 хвилини</option><option value="0">Поки не натисну кнопку</option></select></div>
       <div class="btns"><button class="btn" id="bClose">Закрити</button><button class="btn primary" id="bSave">Зберегти</button></div>
@@ -953,6 +953,27 @@ function fetchCross(url, ms){
     return fetchJSON("https://api.allorigins.win/raw?url="+encodeURIComponent(url), ms||15000);
   });
 }
+/* список черг беремо з самих даних YASNO (напр. 1.1 … 42.1), а не з фіксованого переліку */
+function groupKeys(){
+  var keys = PW.planned ? Object.keys(PW.planned).filter(function(k){ return /^\d+(\.\d+)?$/.test(k); }) : [];
+  if(!keys.length && PW.probable){ try{ keys = Object.keys(PW.probable[String(YASNO.region)].dsos[String(YASNO.dso)].groups); }catch(e){} }
+  keys.sort(function(a,b){ var x=a.split("."), y=b.split("."); return (+x[0]-+y[0]) || ((+x[1]||0)-(+y[1]||0)); });
+  return keys;
+}
+function fillGroups(){
+  var sel=$("fGroup"), cur=S.group||"", keys=groupKeys(), html='<option value="">Не показувати</option>';
+  if(!keys.length) html+='<option value="" disabled>Завантажую черги з YASNO…</option>';
+  if(cur && keys.indexOf(cur)<0) keys.unshift(cur);
+  keys.forEach(function(k){ html+='<option value="'+esc(k)+'">Черга '+esc(k)+'</option>'; });
+  sel.innerHTML=html; sel.value=cur;
+}
+function ensureGroups(){
+  fillGroups();
+  if(groupKeys().length) return;
+  fetchCross(YASNO.planned+"?_="+Date.now(), 12000).then(function(j){ PW.planned=j; fillGroups(); })
+    .catch(function(){ return fetchCross(YASNO.probable+"&_="+Date.now(), 12000).then(function(j){ PW.probable=j; fillGroups(); }); })
+    .catch(function(){ var sel=$("fGroup"); sel.innerHTML='<option value="">Не показувати</option><option value="" disabled>Немає зв’язку з YASNO</option>'+(S.group?'<option value="'+esc(S.group)+'">Черга '+esc(S.group)+'</option>':''); sel.value=S.group||""; });
+}
 function loadPower(){
   var box=$("power");
   if(!S.group){ box.hidden=true; $("cond").hidden=false; return; }
@@ -1474,7 +1495,7 @@ function spatial(container, dir){
 var modal=$("modal");
 var fields=["bApps","fToken","fSrc","fMap","fWx","fTod","fSeason","fPerf","fGroup","fSound","bTest","fDur","bClose","bSave"];
 function openModal(){
-  $("fToken").value=S.token; $("fSrc").value=S.src; $("fMap").value=mapMode(); $("fWx").value=S.wx; $("fTod").value=S.tod; $("fSeason").value=S.season||"auto"; $("fPerf").value=S.perf||"auto"; $("fGroup").value=S.group||""; $("fSound").value=S.sound||"on"; $("fDur").value=S.dur||"60";
+  $("fToken").value=S.token; $("fSrc").value=S.src; $("fMap").value=mapMode(); $("fWx").value=S.wx; $("fTod").value=S.tod; $("fSeason").value=S.season||"auto"; $("fPerf").value=S.perf||"auto"; ensureGroups(); $("fSound").value=S.sound||"on"; $("fDur").value=S.dur||"60";
   modal.hidden=false; $("bApps").focus();
 }
 function closeModal(){ modal.hidden=true; focusAt(row, col); }
